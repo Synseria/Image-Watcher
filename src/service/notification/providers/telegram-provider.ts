@@ -48,7 +48,6 @@ export class TelegramProvider implements INotificationProvider {
     const url = `https://api.telegram.org/bot${this.botToken}/getMe`;
 
     try {
-
       //Appel GET sur l'API Telegram
       const response = await fetch(url, { method: 'GET' });
 
@@ -69,7 +68,7 @@ export class TelegramProvider implements INotificationProvider {
   /**
    * Envoie un message via l'API Telegram
    */
-  async send(message: string, options?: NotificationOptions): Promise<void> {
+  async send(message: string, _options?: NotificationOptions): Promise<void> {
     //Vérifie la configuration
     if (!this.isConfigured())
       //Levée d'une erreur de configuration

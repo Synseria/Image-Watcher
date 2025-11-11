@@ -1,8 +1,8 @@
-import fetch from "node-fetch";
-import { env } from "process";
-import { injectable, singleton } from "tsyringe";
-import { IReleaseProvider, ReleaseUnavailableError } from "../domain/i-release-provider";
-import { ReleaseInfo } from "../domain/release";
+import fetch from 'node-fetch';
+import { env } from 'process';
+import { injectable, singleton } from 'tsyringe';
+import { IReleaseProvider, ReleaseUnavailableError } from '../domain/i-release-provider';
+import { ReleaseInfo } from '../domain/release';
 
 /**
  * Fournisseur GitHub
@@ -11,7 +11,7 @@ import { ReleaseInfo } from "../domain/release";
 @singleton()
 export class GitHubReleaseProvider implements IReleaseProvider {
   /** Nom du fournisseur */
-  readonly providerName = "github";
+  readonly providerName = 'github';
 
   /** URL de base de l'API GitHub */
   private readonly baseUrlApi = 'https://api.github.com';
@@ -43,7 +43,7 @@ export class GitHubReleaseProvider implements IReleaseProvider {
       //Appel de l'API GitHub
       const response = await fetch(url, {
         headers: {
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         }
       });
 
@@ -79,9 +79,9 @@ export class GitHubReleaseProvider implements IReleaseProvider {
 
     //Définition des headers
     const headers: Record<string, string> = {
-      "Accept": "application/vnd.github+json",
-      "User-Agent": "release-service",
-      "Authorization": `Bearer ${token}`
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'release-service',
+      Authorization: `Bearer ${token}`
     };
 
     try {
@@ -102,10 +102,10 @@ export class GitHubReleaseProvider implements IReleaseProvider {
         name: repository,
         version: version,
         url: data.html_url,
-        author: data.author?.login ?? "unknown",
+        author: data.author?.login ?? 'unknown',
         avatarUrl: data.author?.avatar_url ?? null,
         publishedAt: new Date(data.published_at),
-        changelog: data.body || "",
+        changelog: data.body || ''
       };
 
       //Retour du résultat

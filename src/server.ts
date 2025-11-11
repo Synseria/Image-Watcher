@@ -1,7 +1,7 @@
-import express from "express";
-import apiRoutes from "./api/index";
-import createLogger from "./core/logger";
-import { env } from "process";
+import express from 'express';
+import apiRoutes from './api/index';
+import createLogger from './core/logger';
+import { env } from 'process';
 
 /** Création du logger */
 const logger = createLogger();
@@ -22,7 +22,7 @@ export async function startServer() {
   //Vérification de la présence d'un proxy
   if (env.TRUSTED_PROXY)
     //Définition du proxy
-    app.set("trust proxy", env.TRUSTED_PROXY);
+    app.set('trust proxy', env.TRUSTED_PROXY);
 
   //Définition du middleware pour parser le body des requêtes
   app.use(express.json());
@@ -32,7 +32,7 @@ export async function startServer() {
     const start = Date.now();
 
     //Log des gin de requête
-    res.on("finish", () => {
+    res.on('finish', () => {
       //Calcul de la durée
       const duration = Date.now() - start;
 
@@ -43,7 +43,7 @@ export async function startServer() {
         ip: req.ip,
         status: res.statusCode,
         duration: `${duration}ms`,
-        userAgent: req.headers["user-agent"],
+        userAgent: req.headers['user-agent']
       };
 
       //Définition du log
@@ -55,7 +55,7 @@ export async function startServer() {
   });
 
   //Définition des routes
-  app.use("/api", apiRoutes);
+  app.use('/api', apiRoutes);
 
   //Lancement du serveur
   app.listen(PORT, () => logger.info(`Serveur actif sur le port ${PORT}`));

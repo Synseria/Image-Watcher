@@ -1,4 +1,4 @@
-import { ImageInformation } from "../../registry/domain/image-information";
+import { ImageInformation } from '../../registry/domain/image-information';
 
 /**
  * Interface représentant une application
@@ -13,6 +13,5 @@ export interface Application {
   image?: string;
   namespace?: string;
   createdDate?: Date;
-  imageInformation?: ImageInformation
+  imageInformation?: ImageInformation;
 }
-

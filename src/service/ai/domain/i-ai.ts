@@ -1,5 +1,5 @@
-import { IProvider, ProviderError } from "../../../core/domain/i-provider";
-import { AIMessage, AIModel, AIRequestOptions } from "../domain/ai";
+import { IProvider, ProviderError } from '../../../core/domain/i-provider';
+import { AIMessage, AIModel, AIRequestOptions } from '../domain/ai';
 
 /**
  * Interface standard pour les fournisseurs IA
@@ -15,14 +15,14 @@ export interface IAIProvider extends IProvider {
 /**
  * Erreurs spécifiques aux fournisseurs IA
  */
-export class AIProviderError extends ProviderError { }
+export class AIProviderError extends ProviderError {}
 
 /**
  * Erreur de configuration du fournisseur IA
  */
-export class AIConfigurationError extends AIProviderError { }
+export class AIConfigurationError extends AIProviderError {}
 
 /**
  * Erreur de disponibilité du fournisseur IA
  */
-export class AIUnavailableError extends AIProviderError { }
+export class AIUnavailableError extends AIProviderError {}

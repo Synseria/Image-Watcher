@@ -44,7 +44,7 @@ export class GhcrProvider implements IRegistryProvider {
       //Appel de l'API GitHub
       const response = await fetch(url, {
         headers: {
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         }
       });
 
@@ -73,7 +73,7 @@ export class GhcrProvider implements IRegistryProvider {
    */
   async getListeTags(repository: string, limit: number = 10): Promise<{ tag: string; digest: string }[]> {
     //Récupération du token (GHCR ou GitHub)
-    const token = env.GITHUB_TOKEN || await this.getAnonymousToken(repository);
+    const token = env.GITHUB_TOKEN || (await this.getAnonymousToken(repository));
 
     //Construction de l'URL pour lister les tags
     const url = `${this.baseUrlApi}/repos/${repository}/tags?per_page=100&page=1`;
@@ -82,7 +82,7 @@ export class GhcrProvider implements IRegistryProvider {
       //Appel HTTP
       const response = await fetch(url, {
         headers: {
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         }
       });
 
@@ -123,8 +123,7 @@ export class GhcrProvider implements IRegistryProvider {
       const res = await fetch(url);
 
       //Vérification de la réponse
-      if (!res.ok)
-        throw new RegistryUnavailableError(`Échec de la récupération du token GHCR: ${res.status}`, { providerName: this.providerName, url, status: res.status });
+      if (!res.ok) throw new RegistryUnavailableError(`Échec de la récupération du token GHCR: ${res.status}`, { providerName: this.providerName, url, status: res.status });
 
       //Lecture du token
       const { token } = await res.json();

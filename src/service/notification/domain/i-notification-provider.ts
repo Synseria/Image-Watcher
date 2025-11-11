@@ -1,4 +1,4 @@
-import { IProvider, ProviderError } from "../../../core/domain/i-provider";
+import { IProvider, ProviderError } from '../../../core/domain/i-provider';
 import { NotificationOptions } from './notification';
 
 /**
@@ -15,14 +15,14 @@ export interface INotificationProvider extends IProvider {
 /**
  * Erreurs spécifiques aux fournisseurs de notification
  */
-export class NotificationProviderError extends ProviderError { }
+export class NotificationProviderError extends ProviderError {}
 
 /**
  * Erreur de configuration du fournisseur de notification
  */
-export class NotificationConfigurationError extends NotificationProviderError { }
+export class NotificationConfigurationError extends NotificationProviderError {}
 
 /**
  * Erreur de disponibilité du fournisseur de notification
  */
-export class NotificationUnavailableError extends NotificationProviderError { }
+export class NotificationUnavailableError extends NotificationProviderError {}

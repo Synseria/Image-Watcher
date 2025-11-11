@@ -1,4 +1,4 @@
-import { IProvider } from "./i-provider";
+import { IProvider } from './i-provider';
 
 /**
  * Interface de base pour un fournisseur

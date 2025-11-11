@@ -1,8 +1,8 @@
-import "reflect-metadata";
-import { container } from "tsyringe";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { INotificationProvider } from "../../src/service/notification/domain/i-notification-provider";
-import { NotificationService } from "../../src/service/notification/notification.service";
+import 'reflect-metadata';
+import { container } from 'tsyringe';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { INotificationProvider } from '../../src/service/notification/domain/i-notification-provider';
+import { NotificationService } from '../../src/service/notification/notification.service';
 
 // Mode de test : 'unit' (avec mocks) ou 'integration' (avec vrais providers)
 const TEST_MODE = process.env.NOTIFICATION_TEST_MODE || 'unit';
@@ -17,7 +17,7 @@ describe(`NotificationService (${TEST_MODE} tests)`, () => {
       service = container.resolve(NotificationService);
     } else {
       mockProvider = {
-        providerName: "mock-provider",
+        providerName: 'mock-provider',
         isConfigured: vi.fn().mockReturnValue(true),
         maxLength: 2000,
         send: vi.fn().mockResolvedValue(undefined),
@@ -29,15 +29,15 @@ describe(`NotificationService (${TEST_MODE} tests)`, () => {
   });
 
   if (!IS_INTEGRATION) {
-    describe("initializeProviders()", () => {
-      it("enregistre un provider configuré", () => {
+    describe('initializeProviders()', () => {
+      it('enregistre un provider configuré', () => {
         expect(mockProvider!.isConfigured).toHaveBeenCalled();
-        expect(service["providers"].size).toBe(1);
+        expect(service['providers'].size).toBe(1);
       });
 
-      it("ignore un provider non configuré", () => {
+      it('ignore un provider non configuré', () => {
         const unconfiguredProvider: INotificationProvider = {
-          providerName: "unconfigured",
+          providerName: 'unconfigured',
           isConfigured: vi.fn().mockReturnValue(false),
           maxLength: 2000,
           send: vi.fn(),
@@ -45,56 +45,56 @@ describe(`NotificationService (${TEST_MODE} tests)`, () => {
         };
 
         const newService = new NotificationService(unconfiguredProvider, unconfiguredProvider);
-        expect(newService["providers"].size).toBe(0);
+        expect(newService['providers'].size).toBe(0);
       });
     });
   }
 
-  describe("broadcast()", () => {
+  describe('broadcast()', () => {
     if (!IS_INTEGRATION) {
-      it("envoie un message simple", async () => {
+      it('envoie un message simple', async () => {
         mockProvider!.send = vi.fn().mockResolvedValue(undefined);
 
-        const results = await service.broadcast("Test message");
+        const results = await service.broadcast('Test message');
 
-        expect(mockProvider!.send).toHaveBeenCalledWith("Test message", undefined);
-        expect(results).toEqual([{ provider: "mock-provider", success: true }]);
+        expect(mockProvider!.send).toHaveBeenCalledWith('Test message', undefined);
+        expect(results).toEqual([{ provider: 'mock-provider', success: true }]);
       });
 
-      it("envoie un tableau de messages", async () => {
+      it('envoie un tableau de messages', async () => {
         mockProvider!.send = vi.fn().mockResolvedValue(undefined);
 
-        const results = await service.broadcast(["Line 1", "Line 2"]);
+        const results = await service.broadcast(['Line 1', 'Line 2']);
 
-        expect(mockProvider!.send).toHaveBeenCalledWith("Line 1\nLine 2", undefined);
+        expect(mockProvider!.send).toHaveBeenCalledWith('Line 1\nLine 2', undefined);
         expect(results[0].success).toBe(true);
       });
 
-      it("retourne un tableau vide si aucun provider", async () => {
-        service["providers"].clear();
+      it('retourne un tableau vide si aucun provider', async () => {
+        service['providers'].clear();
 
-        const results = await service.broadcast("Test");
+        const results = await service.broadcast('Test');
 
         expect(results).toEqual([]);
       });
 
-      it("continue même si un provider échoue", async () => {
-        mockProvider!.send = vi.fn().mockRejectedValue(new Error("Failed"));
+      it('continue même si un provider échoue', async () => {
+        mockProvider!.send = vi.fn().mockRejectedValue(new Error('Failed'));
 
-        const results = await service.broadcast("Test");
+        const results = await service.broadcast('Test');
 
         expect(results[0]).toEqual({
-          provider: "mock-provider",
+          provider: 'mock-provider',
           success: false,
-          error: "Failed"
+          error: 'Failed'
         });
       });
     } else {
-      it("envoie une notification réelle", async () => {
-        const results = await service.broadcast("🧪 Test notification from integration tests");
+      it('envoie une notification réelle', async () => {
+        const results = await service.broadcast('🧪 Test notification from integration tests');
 
         if (results.length === 0) {
-          console.warn("⚠️  Aucun provider configuré");
+          console.warn('⚠️  Aucun provider configuré');
           return;
         }
 
@@ -102,12 +102,8 @@ describe(`NotificationService (${TEST_MODE} tests)`, () => {
         expect(results.length).toBeGreaterThan(0);
       }, 10000);
 
-      it("envoie plusieurs messages", async () => {
-        const messages = [
-          "🧪 Test ligne 1",
-          "🧪 Test ligne 2",
-          "🧪 Test ligne 3"
-        ];
+      it('envoie plusieurs messages', async () => {
+        const messages = ['🧪 Test ligne 1', '🧪 Test ligne 2', '🧪 Test ligne 3'];
 
         const results = await service.broadcast(messages);
 
@@ -120,43 +116,43 @@ describe(`NotificationService (${TEST_MODE} tests)`, () => {
     }
   });
 
-  describe("getAvailableProviders()", () => {
-    it("retourne la liste des providers", () => {
+  describe('getAvailableProviders()', () => {
+    it('retourne la liste des providers', () => {
       const providers = service.getAvailableProviders();
 
       expect(Array.isArray(providers)).toBe(true);
 
       if (IS_INTEGRATION) {
-        console.log("Providers disponibles:", providers);
+        console.log('Providers disponibles:', providers);
       } else {
-        expect(providers).toContain("mock-provider");
+        expect(providers).toContain('mock-provider');
       }
     });
   });
 
-  describe("splitMessageSmart()", () => {
+  describe('splitMessageSmart()', () => {
     if (!IS_INTEGRATION) {
-      it("ne découpe pas un message court", () => {
-        const parts = service["splitMessageSmart"]("Short message", 100);
-        expect(parts).toEqual(["Short message"]);
+      it('ne découpe pas un message court', () => {
+        const parts = service['splitMessageSmart']('Short message', 100);
+        expect(parts).toEqual(['Short message']);
       });
 
-      it("découpe un message long", () => {
-        const longMessage = "A".repeat(2500);
-        const parts = service["splitMessageSmart"](longMessage, 2000);
+      it('découpe un message long', () => {
+        const longMessage = 'A'.repeat(2500);
+        const parts = service['splitMessageSmart'](longMessage, 2000);
 
         expect(parts.length).toBeGreaterThan(1);
         expect(parts.every((p: string) => p.length <= 2000)).toBe(true);
       });
 
-      it("joint un tableau en un seul texte", () => {
-        const parts = service["splitMessageSmart"](["Line 1", "Line 2"], 100);
-        expect(parts).toEqual(["Line 1\nLine 2"]);
+      it('joint un tableau en un seul texte', () => {
+        const parts = service['splitMessageSmart'](['Line 1', 'Line 2'], 100);
+        expect(parts).toEqual(['Line 1\nLine 2']);
       });
     } else {
-      it("découpe un message très long en plusieurs parties", () => {
-        const longMessage = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(100);
-        const parts = service["splitMessageSmart"](longMessage, 500);
+      it('découpe un message très long en plusieurs parties', () => {
+        const longMessage = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(100);
+        const parts = service['splitMessageSmart'](longMessage, 500);
 
         console.log(`Message découpé en ${parts.length} parties.`);
         expect(parts.length).toBeGreaterThan(1);
@@ -166,8 +162,8 @@ describe(`NotificationService (${TEST_MODE} tests)`, () => {
   });
 
   if (IS_INTEGRATION) {
-    describe("Configuration", () => {
-      it("liste les providers configurés", () => {
+    describe('Configuration', () => {
+      it('liste les providers configurés', () => {
         const providers = service.getAvailableProviders();
         console.log(`${providers.length} provider(s) configuré(s):`, providers);
         expect(providers.length).toBeGreaterThanOrEqual(0);

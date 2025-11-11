@@ -1,7 +1,7 @@
-import { V1Deployment, V1StatefulSet } from "@kubernetes/client-node";
-import { IProvider, ProviderError } from "../../../core/domain/i-provider";
-import { ApplicationAnnotation } from "../../image-watcher/domain/annotation";
-import { Application } from "./application";
+import { V1Deployment, V1StatefulSet } from '@kubernetes/client-node';
+import { IProvider, ProviderError } from '../../../core/domain/i-provider';
+import { ApplicationAnnotation } from '../../image-watcher/domain/annotation';
+import { Application } from './application';
 
 /**
  * Interface de gestion des providers
@@ -14,7 +14,7 @@ export interface IOrchestratorProvider extends IProvider {
   getApplication(namespace: string, name: string): Promise<Application>;
 
   /** Mise à jours d'une application */
-  patchApplication(app: Application, params: ApplicationAnnotation, image?: string): Promise<V1Deployment | V1StatefulSet>
+  patchApplication(app: Application, params: ApplicationAnnotation, image?: string): Promise<V1Deployment | V1StatefulSet>;
 
   /** Lecture du digest */
   readDigest(application: Application): Promise<string>;
@@ -23,14 +23,14 @@ export interface IOrchestratorProvider extends IProvider {
 /**
  * Erreurs spécifiques aux fournisseurs d'orchestrateur
  */
-export class OrchestratorProviderError extends ProviderError { }
+export class OrchestratorProviderError extends ProviderError {}
 
 /**
  * Erreur de configuration du fournisseur d'orchestrateur
  */
-export class OrchestratorConfigurationError extends OrchestratorProviderError { }
+export class OrchestratorConfigurationError extends OrchestratorProviderError {}
 
 /**
  * Erreur de disponibilité du fournisseur d'orchestrateur
  */
-export class OrchestratorUnavailableError extends OrchestratorProviderError { }
+export class OrchestratorUnavailableError extends OrchestratorProviderError {}

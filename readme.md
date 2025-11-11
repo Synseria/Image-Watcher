@@ -1,7 +1,52 @@
 
 # Image-Watcher
 
+[![CI/CD Pipeline](https://github.com/Synseria/Image-Watcher/actions/workflows/ci-cd.yaml/badge.svg)](https://github.com/Synseria/Image-Watcher/actions/workflows/ci-cd.yaml)
+[![GitHub release](https://img.shields.io/github/v/release/Synseria/Image-Watcher?include_prereleases)](https://github.com/Synseria/Image-Watcher/releases)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/Synseria/Image-Watcher/pkgs/container/image-watcher)
+
 Image Watcher est un service autonome conçu pour surveiller et gérer automatiquement les mises à jour des images Docker dans des déploiements Kubernetes (StatefulSet ou Deployment). Il permet de déclencher des mises à jour, de notifier des changements de version et de conserver un historique des images utilisées.
+
+## 🚀 Installation rapide
+
+### Via Docker
+
+```bash
+# Dernière version stable
+docker pull ghcr.io/synseria/image-watcher:latest
+
+# Version spécifique
+docker pull ghcr.io/synseria/image-watcher:1.0.0
+
+# Branche develop (développement)
+docker pull ghcr.io/synseria/image-watcher:develop
+```
+
+### Via Kubernetes
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-watcher
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: image-watcher
+  template:
+    metadata:
+      labels:
+        app: image-watcher
+    spec:
+      containers:
+      - name: image-watcher
+        image: ghcr.io/synseria/image-watcher:latest
+        env:
+        - name: LOG_LEVEL
+          value: "INFO"
+        # Ajoutez vos autres variables d'environnement ici
+```
 
 ## Objectifs principaux
 
@@ -56,6 +101,68 @@ Image Watcher est un service autonome conçu pour surveiller et gérer automatiq
 | `image-watcher/last-updated-version` | Version de l’image utilisée lors de la dernière mise à jour. |
 | `image-watcher/last-notified`| Timestamp du dernier événement de notification envoyé par le watcher. |
 | `image-watcher/last-notified-version` | Version de l’image pour laquelle une notification a été envoyée. |
-| `image-watcher/previous-version` | Version précédente de l’image avant la mise à jour. |
-| `image-watcher/current-version` | Version actuelle de l’image après la mise à jour. |
-| `image-watcher/token-update`  | Token unique utilisé pour sécuriser le déclenchement d’une mise à jour manuelle via API. |
+| `image-watcher/previous-version` | Version précédente de l'image avant la mise à jour. |
+| `image-watcher/current-version` | Version actuelle de l'image après la mise à jour. |
+| `image-watcher/token-update`  | Token unique utilisé pour sécuriser le déclenchement d'une mise à jour manuelle via API. |
+
+---
+
+## 🛠️ Développement
+
+### Prérequis
+
+- Node.js 22+
+- npm
+- Docker (pour les builds locaux)
+
+### Installation locale
+
+```bash
+# Cloner le repo
+git clone https://github.com/Synseria/Image-Watcher.git
+cd Image-Watcher
+
+# Installer les dépendances
+npm install
+
+# Copier le fichier d'environnement
+cp .env.example .env
+
+# Lancer en mode développement
+npm run dev
+```
+
+### Commandes disponibles
+
+```bash
+npm run dev          # Lancer en mode développement
+npm run build        # Build TypeScript
+npm test            # Lancer les tests
+npm run test-int    # Lancer les tests d'intégration
+npm run lint        # Vérifier le code
+npm run format      # Formater le code
+```
+
+### CI/CD
+
+Le projet utilise GitHub Actions pour l'intégration et le déploiement continu. 
+
+**Documentation complète :**
+- 📘 [Guide GitHub Actions](.github/GITHUB_ACTIONS_GUIDE.md) - Guide complet pour débutants
+- 📋 [Aide-mémoire](.github/QUICK_REFERENCE.md) - Commandes rapides
+- 🎓 [Tutoriel](.github/TUTORIAL.md) - Pas à pas pour configurer la pipeline
+- 🔧 [Configurations avancées](.github/ADVANCED_CONFIG.md) - Exemples avancés
+
+**Workflow de développement :**
+
+```
+feature/ma-feature → develop → main → v1.0.0 (tag)
+       ↓                ↓        ↓         ↓
+    Tests only     Tests+Docker  Latest  Release
+```
+
+---
+
+## 📄 Licence
+
+Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
