@@ -3,26 +3,21 @@ name: Dependabot Auto-merge
 on:
   pull_request:
     branches: [dev]
-
 permissions:
   contents: write
   pull-requests: write
-
 jobs:
   auto-merge:
     name: Auto-merge Dependabot
     runs-on: ubuntu-latest
-    
     # Seulement pour les PR de Dependabot
     if: github.actor == 'dependabot[bot]'
-    
     steps:
       - name: Dependabot metadata
         id: metadata
         uses: dependabot/fetch-metadata@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      
       # Auto-merge les patch et minor (pas les major)
       - name: Enable auto-merge
         if: |
@@ -33,7 +28,6 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
       # Commenter pour les major (review manuelle)
       - name: Comment on major update
         if: steps.metadata.outputs.update-type == 'version-update:semver-major'

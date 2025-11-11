@@ -1,10 +1,8 @@
-name: Require Valid Incremental Tag on PR to Master
-
+name: Require Tag on PR to Master
 on:
   pull_request:
     branches:
       - master
-
 jobs:
   check-tag:
     runs-on: ubuntu-latest
@@ -13,7 +11,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # important pour récupérer tout l'historique et les tags
-
       - name: Verify new tag format and increment
         run: |
           # Récupère tous les tags

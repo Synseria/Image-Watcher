@@ -1,24 +1,19 @@
 name: CI/CD
-
 on:
   push:
     branches: ['**']
     tags: ['v*']
   pull_request:
-
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   test:
     uses: ./.github/workflows/test.yaml
-
   build:
     uses: ./.github/workflows/build.yaml
     needs: test
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev'
-
   docker:
     uses: ./.github/workflows/docker.yaml
     needs: test
@@ -30,7 +25,6 @@ jobs:
       contents: read
       packages: write
     secrets: inherit
-
   release:
     uses: ./.github/workflows/release.yaml
     needs: [test, docker]
