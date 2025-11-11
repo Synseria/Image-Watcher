@@ -11,9 +11,8 @@
     "lint": "eslint . --ext .ts",
     "build": "tsc --project tsconfig.json"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Synseria",
+  "license": "Apache-2.0",
   "description": "",
   "dependencies": {
     "@kubernetes/client-node": "1.4.0",

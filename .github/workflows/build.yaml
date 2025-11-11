@@ -1,25 +1,30 @@
 name: Build
-
 on:
+  pull_request:
+    branches: [dev, master]
+  push:
+    branches: [dev]
   workflow_call:
-
 jobs:
   build:
-    name: Build TypeScript
+    name: Build & Validate
     runs-on: ubuntu-latest
-    
     steps:
       - uses: actions/checkout@v4
-      
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: 'npm'
-      
       - run: npm ci
-      
       - run: npm run build
-      
+      # Vérification du build (si dist vide => erreur)
+      - name: Verify build output
+        run: |
+          if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then
+            echo "❌ Build output is empty."
+            exit 1
+          fi
+          echo "✅ Build succeeded and dist/ is not empty."
       - uses: actions/upload-artifact@v4
         with:
           name: build-output
