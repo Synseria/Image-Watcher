@@ -1,10 +1,6 @@
 
 # Image-Watcher
 
-[![CI/CD Pipeline](https://github.com/Synseria/Image-Watcher/actions/workflows/ci-cd.yaml/badge.svg)](https://github.com/Synseria/Image-Watcher/actions/workflows/ci-cd.yaml)
-[![GitHub release](https://img.shields.io/github/v/release/Synseria/Image-Watcher?include_prereleases)](https://github.com/Synseria/Image-Watcher/releases)
-[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/Synseria/Image-Watcher/pkgs/container/image-watcher)
-
 Image Watcher est un service autonome conçu pour surveiller et gérer automatiquement les mises à jour des images Docker dans des déploiements Kubernetes (StatefulSet ou Deployment). Il permet de déclencher des mises à jour, de notifier des changements de version et de conserver un historique des images utilisées.
 
 ## 🚀 Installation rapide
@@ -29,6 +25,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: image-watcher
+  annotations:
+    # Exemple d'annotation pour définir le mode et la stratégie
+    image-watcher/mode: "NOTIFICATION"
+    image-watcher/strategy: "MINOR"
 spec:
   replicas: 1
   selector:
@@ -141,24 +141,6 @@ npm test            # Lancer les tests
 npm run test-int    # Lancer les tests d'intégration
 npm run lint        # Vérifier le code
 npm run format      # Formater le code
-```
-
-### CI/CD
-
-Le projet utilise GitHub Actions pour l'intégration et le déploiement continu. 
-
-**Documentation complète :**
-- 📘 [Guide GitHub Actions](.github/GITHUB_ACTIONS_GUIDE.md) - Guide complet pour débutants
-- 📋 [Aide-mémoire](.github/QUICK_REFERENCE.md) - Commandes rapides
-- 🎓 [Tutoriel](.github/TUTORIAL.md) - Pas à pas pour configurer la pipeline
-- 🔧 [Configurations avancées](.github/ADVANCED_CONFIG.md) - Exemples avancés
-
-**Workflow de développement :**
-
-```
-feature/ma-feature → develop → main → v1.0.0 (tag)
-       ↓                ↓        ↓         ↓
-    Tests only     Tests+Docker  Latest  Release
 ```
 
 ---
