@@ -1,4 +1,4 @@
-name: Enforce Dev PRs
+name: Master Pull Request Check
 on:
   pull_request:
     branches: [master]
@@ -6,9 +6,9 @@ jobs:
   check-pr-source:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify PR source
+      - name: Check PR Source Branch
         run: |
           if [ "${{ github.head_ref }}" != "dev" ]; then
-            echo "❌ Only PRs from 'dev' branch are allowed to merge into master."
+            echo "❌ Pull request must originate from the 'dev' branch."
             exit 1
           fi
