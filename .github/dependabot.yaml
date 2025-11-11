@@ -9,7 +9,7 @@ updates:
       interval: "weekly"  # Vérifie chaque semaine
       day: "monday"       # Le lundi
       time: "09:00"       # À 9h
-    open-pull-requests-limit: 5  # Max 5 PR ouvertes en même temps
+    open-pull-requests-limit: 10  # Max 10 PR ouvertes en même temps
     
     #Regrouper les mises à jour mineures
     groups:
