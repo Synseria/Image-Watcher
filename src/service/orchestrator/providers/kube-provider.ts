@@ -74,10 +74,7 @@ export class KubeProvider implements IOrchestratorProvider {
       namespaces.map(async (namespace) => {
         try {
           //Récupération des Deployments et StatefulSets
-          const [deploymentsRes, statefulSetsRes] = await Promise.all([
-            this.appsV1.listNamespacedDeployment({ namespace }),
-            this.appsV1.listNamespacedStatefulSet({ namespace }),
-          ]);
+          const [deploymentsRes, statefulSetsRes] = await Promise.all([this.appsV1.listNamespacedDeployment({ namespace }), this.appsV1.listNamespacedStatefulSet({ namespace })]);
 
           //Formatage des Deployments
           const formatDeployment = (d: V1Deployment): Application => ({
@@ -106,10 +103,7 @@ export class KubeProvider implements IOrchestratorProvider {
           });
 
           //Retour des applications formatées
-          return [
-            ...deploymentsRes.items.map(formatDeployment),
-            ...statefulSetsRes.items.map(formatStatefulSet),
-          ];
+          return [...deploymentsRes.items.map(formatDeployment), ...statefulSetsRes.items.map(formatStatefulSet)];
         } catch {
           //En cas d'erreur, renvoie un tableau vide
           return [];
@@ -152,7 +146,9 @@ export class KubeProvider implements IOrchestratorProvider {
           namespace
         };
       }
-    } catch { }
+    } catch {
+      //Ignorer l'erreur et tenter de récupérer le StatefulSet
+    }
 
     try {
       //Recherche du StatefulSet
@@ -170,7 +166,9 @@ export class KubeProvider implements IOrchestratorProvider {
           namespace
         };
       }
-    } catch { }
+    } catch {
+      //Ignorer l'erreur
+    }
 
     //Aucune application trouvée
     throw new OrchestratorUnavailableError(`Aucune application trouvée avec le nom ${name} dans le namespace ${namespace}`, { providerName: this.providerName, namespace, name });

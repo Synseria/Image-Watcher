@@ -30,7 +30,7 @@ export class NotificationService extends ServiceProvider {
     this.initializeProviders([discordProvider, telegramProvider]);
   }
 
-  /** 
+  /**
    * Enregistrement des fournisseurs (synchronne, basé sur isConfigured)
    */
   protected initializeProviders(providers: INotificationProvider[]): void {
@@ -129,7 +129,7 @@ export class NotificationService extends ServiceProvider {
    */
   private splitMessageSmart(input: string | string[], maxLength: number): string[] {
     //Définition du texte
-    const text = Array.isArray(input) ? input.join("\n") : input.trim();
+    const text = Array.isArray(input) ? input.join('\n') : input.trim();
 
     //Vérification de la longueur du texte
     if (text.length <= maxLength)
@@ -138,11 +138,11 @@ export class NotificationService extends ServiceProvider {
 
     //Définition des séparateurs
     const separators = [
-      /\n{2,}/g,      //Paragraphes
+      /\n{2,}/g, //Paragraphes
       /(?<=#{1,3}\s)/g, //Titres markdown
-      /\n/g,          //Lignes
+      /\n/g, //Lignes
       /(?<=[.!?])\s+/g, //Phrases
-      /\s+/g           //Espaces
+      /\s+/g //Espaces
     ];
 
     //Initialisation du chunk
@@ -168,10 +168,10 @@ export class NotificationService extends ServiceProvider {
       //Itération sur les séparateurs
       for (const sep of separators) {
         //Définition des correspondances
-        const matches = [...remaining.matchAll(sep)].map(m => m.index ?? 0);
+        const matches = [...remaining.matchAll(sep)].map((m) => m.index ?? 0);
 
         //Définition de l'index
-        const validIndex = matches.reverse().find(i => i < maxLength);
+        const validIndex = matches.reverse().find((i) => i < maxLength);
 
         //Vérification de l'index
         if (validIndex) {
@@ -204,5 +204,4 @@ export class NotificationService extends ServiceProvider {
     //Retour des chunks
     return chunks;
   }
-
 }

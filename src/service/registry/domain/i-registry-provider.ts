@@ -1,4 +1,4 @@
-import { IProvider, ProviderError } from "../../../core/domain/i-provider";
+import { IProvider, ProviderError } from '../../../core/domain/i-provider';
 
 /**
  * Interface commune à tous les registres.
@@ -8,15 +8,15 @@ export interface IRegistryProvider extends IProvider {
   /**
    * Récupère les derniers tags disponibles pour un dépôt
    */
-  getListeTags(repository: string, limit?: number): Promise<{ tag: string, digest: string }[]>;
+  getListeTags(repository: string, limit?: number): Promise<{ tag: string; digest: string }[]>;
 }
 
 /**
  * Erreurs spécifiques aux fournisseurs de registre
  */
-export class RegistryProviderError extends ProviderError { }
+export class RegistryProviderError extends ProviderError {}
 
 /**
  * Erreur de configuration du fournisseur de registre
  */
-export class RegistryUnavailableError extends RegistryProviderError { }
+export class RegistryUnavailableError extends RegistryProviderError {}

@@ -1,4 +1,4 @@
-import { compareSemver, ParsedSemver, parseSemver } from "./semver-utils";
+import { compareSemver, ParsedSemver, parseSemver } from './semver-utils';
 
 /**
  * Vérifie si une notification doit être envoyée
@@ -20,9 +20,7 @@ export function shouldSendNotification(
   const now = new Date();
 
   // Calcul du délai depuis la dernière notification
-  const shouldRemind = lastNotified
-    ? (now.getTime() - lastNotified.getTime()) / (1000 * 60 * 60 * 24) >= reminderDelayDays
-    : false;
+  const shouldRemind = lastNotified ? (now.getTime() - lastNotified.getTime()) / (1000 * 60 * 60 * 24) >= reminderDelayDays : false;
 
   // Si aucune notification précédente, toutes les versions sont nouvelles
   if (!lastNotified || !lastNotifiedVersion) {
@@ -43,7 +41,7 @@ export function shouldSendNotification(
   }
 
   // Filtrage des versions plus récentes que la dernière notifiée
-  const newVersions = availableVersions.filter(tag => compareSemver(tag, lastVersion) > 0);
+  const newVersions = availableVersions.filter((tag) => compareSemver(tag, lastVersion) > 0);
 
   return {
     newVersions,

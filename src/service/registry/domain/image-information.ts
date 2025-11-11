@@ -1,4 +1,3 @@
-
 /**
  * Type standard pour représenter une image Docker depuis n'importe quel registre
  */

@@ -1,5 +1,3 @@
-import { TypeStrategy } from "../service/image-watcher/domain/annotation";
-
 /** Regex Semver */
 const SEMVER_REGEX = /^([^0-9]*)(\d+)\.(\d+)\.(\d+)(.*)?$/;
 
@@ -60,18 +58,20 @@ export function getNewerTags(currenTag: string, listeTags: string[], sameSuffix:
   const listeParseds = listeTags.map(parseSemver).filter(Boolean) as ParsedSemver[];
 
   //Itération sur la liste des tags
-  return listeParseds.filter(v => {
-    //Vérification de la présence du samePrerelease et de deux prerelease différente
-    if (sameSuffix && v.suffix !== parsedTag?.suffix)
-      //suffix différent
-      return false;
+  return listeParseds
+    .filter((v) => {
+      //Vérification de la présence du samePrerelease et de deux prerelease différente
+      if (sameSuffix && v.suffix !== parsedTag?.suffix)
+        //suffix différent
+        return false;
 
-    //Comparaison des samePrerelease si le pre release est à false
-    const comp = sameSuffix ? compareSemver(v, parsedTag) : compareSemver({ ...v, suffix: null }, { ...parsedTag, suffix: null });
+      //Comparaison des samePrerelease si le pre release est à false
+      const comp = sameSuffix ? compareSemver(v, parsedTag) : compareSemver({ ...v, suffix: null }, { ...parsedTag, suffix: null });
 
-    //Retour
-    return comp === 1;
-  }).sort((a, b) => compareSemver({ ...b, suffix: sameSuffix ? b.suffix : null }, { ...a, suffix: sameSuffix ? a.suffix : null }));
+      //Retour
+      return comp === 1;
+    })
+    .sort((a, b) => compareSemver({ ...b, suffix: sameSuffix ? b.suffix : null }, { ...a, suffix: sameSuffix ? a.suffix : null }));
 }
 
 /**
@@ -86,11 +86,7 @@ export function getListePatchs(currentTag: string, listeTags: ParsedSemver[], sa
     return [];
 
   //Filtrage de la liste
-  const filtered = listeTags.filter(v =>
-    v.major === current.major &&
-    v.minor === current.minor &&
-    isNewerThan(v, current, samePrerelease)
-  );
+  const filtered = listeTags.filter((v) => v.major === current.major && v.minor === current.minor && isNewerThan(v, current, samePrerelease));
 
   //Tri de la liste (du plus récent au plus ancien)
   return filtered.sort((a, b) => {
@@ -116,11 +112,7 @@ export function getListeMinors(currentTag: string, listeTags: ParsedSemver[], sa
     return [];
 
   //Filtrage de la liste
-  const filtered = listeTags.filter(v =>
-    v.major === current.major &&
-    v.minor > current.minor &&
-    isNewerThan(v, current, samePrerelease)
-  );
+  const filtered = listeTags.filter((v) => v.major === current.major && v.minor > current.minor && isNewerThan(v, current, samePrerelease));
 
   //Tri de la liste (du plus récent au plus ancien)
   return filtered.sort((a, b) => {
@@ -146,10 +138,7 @@ export function getListeMajors(currentTag: string, listeTags: ParsedSemver[], sa
     return [];
 
   //Filtrage de la liste
-  const filtered = listeTags.filter(v =>
-    v.major > current.major &&
-    isNewerThan(v, current, samePrerelease)
-  );
+  const filtered = listeTags.filter((v) => v.major > current.major && isNewerThan(v, current, samePrerelease));
 
   //Tri de la liste (du plus récent au plus ancien)
   return filtered.sort((a, b) => {
@@ -170,8 +159,7 @@ export function isNewerThan(v: ParsedSemver, base: ParsedSemver, samePrerelease:
   //Vérification du suffix
   if (samePrerelease) {
     //Si on veut le même suffix, on vérifie d'abord qu'ils sont identiques
-    if (v.suffix !== base.suffix)
-      return false;
+    if (v.suffix !== base.suffix) return false;
 
     //Comparaison avec suffix
     return compareSemver(v, base) === 1;
@@ -226,24 +214,15 @@ export function compareSemver(a: ParsedSemver, b: ParsedSemver): number {
 /**
  * Analyse et catégorise les mises à jour semver disponibles
  */
-export function analyzeSemverVersions(currentVersion: string, availableTags: string[], sameSuffix = true): {
-  all: ParsedSemver[];
-  majors: ParsedSemver[];
-  minors: ParsedSemver[];
-  patches: ParsedSemver[];
-} {
+export function analyzeSemverVersions(currentVersion: string, availableTags: string[], sameSuffix = true): { all: ParsedSemver[]; majors: ParsedSemver[]; minors: ParsedSemver[]; patches: ParsedSemver[] } {
   // Récupération des versions plus récentes
   let newerVersions = getNewerTags(currentVersion, availableTags, sameSuffix);
 
   // Construction d'un Set des versions qui existent avec un préfixe "v"
-  const hasVPrefix = new Set(
-    newerVersions
-      .filter(v => v.prefix === 'v')
-      .map(v => `${v.major}.${v.minor}.${v.patch}${v.suffix ?? ''}`)
-  );
+  const hasVPrefix = new Set(newerVersions.filter((v) => v.prefix === 'v').map((v) => `${v.major}.${v.minor}.${v.patch}${v.suffix ?? ''}`));
 
   // Filtre : on supprime les versions sans "v" si leur équivalent avec "v" existe
-  newerVersions = newerVersions.filter(v => {
+  newerVersions = newerVersions.filter((v) => {
     const key = `${v.major}.${v.minor}.${v.patch}${v.suffix ?? ''}`;
     // Si une version "v" équivalente existe, on retire celle sans prefixe
     if (v.prefix !== 'v' && hasVPrefix.has(key)) return false;

@@ -1,0 +1,24 @@
+# Étape 1 : builder (installation des dépendances)
+FROM node:lts-alpine AS builder
+
+WORKDIR /app
+
+# Copier package.json + package-lock.json pour profiter du cache Docker
+COPY package*.json ./
+
+# Installer les dépendances
+RUN npm ci --omit=dev
+
+# Copier le reste du code
+COPY . .
+
+# Étape 2 : image finale légère
+FROM node:lts-alpine
+
+WORKDIR /app
+
+# Copier depuis le builder
+COPY --from=builder /app .
+
+# Commande par défaut
+CMD ["node", "index.js"]

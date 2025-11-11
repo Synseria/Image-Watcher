@@ -1,10 +1,10 @@
-import { inject, injectable, singleton } from "tsyringe";
-import { ServiceProvider } from "../../core/domain/service-provider";
-import createLogger from "../../core/logger";
-import { IRegistryProvider } from "./domain/i-registry-provider";
-import { DockerHubProvider } from "./providers/docker-hub-provider";
-import { GhcrProvider } from "./providers/ghcr-provider";
-import { parseImageName } from "../../utils/image-utils";
+import { inject, injectable, singleton } from 'tsyringe';
+import { ServiceProvider } from '../../core/domain/service-provider';
+import createLogger from '../../core/logger';
+import { IRegistryProvider } from './domain/i-registry-provider';
+import { DockerHubProvider } from './providers/docker-hub-provider';
+import { GhcrProvider } from './providers/ghcr-provider';
+import { parseImageName } from '../../utils/image-utils';
 
 /** Création du logger pour ce module **/
 const logger = createLogger();
@@ -21,7 +21,10 @@ export class RegistryService extends ServiceProvider {
   /**
    * Constructeur du service des registres
    */
-  constructor(@inject(DockerHubProvider) private dockerHubProvider: IRegistryProvider, @inject(GhcrProvider) private ghcrProvider: IRegistryProvider) {
+  constructor(
+    @inject(DockerHubProvider) private dockerHubProvider: IRegistryProvider,
+    @inject(GhcrProvider) private ghcrProvider: IRegistryProvider
+  ) {
     //Appel du constructeur parent
     super();
 
@@ -56,7 +59,7 @@ export class RegistryService extends ServiceProvider {
       //Log
       logger.warn(`Aucun fournisseur de registre n'est configuré ; le service fonctionne actuellement en mode silencieux.`);
     } else {
-      logger.info(`Les fournisseurs de registre actifs sont: ${Array.from(this.providers.keys()).join(", ")}.`);
+      logger.info(`Les fournisseurs de registre actifs sont: ${Array.from(this.providers.keys()).join(', ')}.`);
     }
   }
 
@@ -83,7 +86,7 @@ export class RegistryService extends ServiceProvider {
   /**
    * Méthode publique pour lister les tags d'une image
    */
-  public async getListeTags(imageName: string, limit = 100): Promise<{ tag: string, digest: string }[]> {
+  public async getListeTags(imageName: string, limit = 100): Promise<{ tag: string; digest: string }[]> {
     //Parse le nom complet
     const { registry, repository } = parseImageName(imageName);
 
@@ -119,11 +122,11 @@ export class RegistryService extends ServiceProvider {
 
     //Retourne le fournisseur approprié
     switch (baseUrl) {
-      case "ghcr.io":
+      case 'ghcr.io':
         //Utilisation du registry GHCR
         candidate = this.ghcrProvider;
         break;
-      case "docker.io":
+      case 'docker.io':
       default:
         //Utilisation du registry Docker Hub par défaut
         candidate = this.dockerHubProvider;

@@ -31,7 +31,7 @@ export class OrchestratorService extends ServiceProvider {
     this.initializeProviders([kubeProvider]);
   }
 
-  /** 
+  /**
    * Enregistrement des fournisseurs (synchronne, basé sur isConfigured)
    */
   protected initializeProviders(providers: IOrchestratorProvider[]): void {
@@ -63,7 +63,7 @@ export class OrchestratorService extends ServiceProvider {
     }
   }
 
-  /** 
+  /**
    * Récupération optionnelle du provider (silencieux si absent)
    */
   protected getProvider(): IOrchestratorProvider {
@@ -100,8 +100,8 @@ export class OrchestratorService extends ServiceProvider {
           ...application,
           imageInformation: {
             ...imageInformation,
-            digest: imageInformation.digest || application?.imageInformation?.digest,
-          },
+            digest: imageInformation.digest || application?.imageInformation?.digest
+          }
         };
       });
 
@@ -138,8 +138,8 @@ export class OrchestratorService extends ServiceProvider {
         ...application,
         imageInformation: {
           ...imageInformation,
-          digest: imageInformation.digest || application?.imageInformation?.digest,
-        },
+          digest: imageInformation.digest || application?.imageInformation?.digest
+        }
       };
       //Log
       logger.info(`L'application "${namespace}/${name}" a été récupérée avec succès.`);

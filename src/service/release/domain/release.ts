@@ -1,4 +1,3 @@
-
 /**
  * Interface représentant les informations d'une releases.
  */

@@ -25,7 +25,7 @@ export class ProviderError extends Error {
   /**
    * Constructeur de l'erreur ProviderError
    */
-  constructor(message: string, details: { providerName: string;[key: string]: any }, stack?: string) {
+  constructor(message: string, details: { providerName: string; [key: string]: any }, stack?: string) {
     //Héritage
     super(message);
 

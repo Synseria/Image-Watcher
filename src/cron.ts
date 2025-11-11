@@ -1,8 +1,8 @@
-import cron from "node-cron";
-import { env } from "process";
-import { container } from "tsyringe";
-import createLogger from "./core/logger";
-import { ImageWatcherService } from "./service/image-watcher/image-watcher.service";
+import cron from 'node-cron';
+import { env } from 'process';
+import { container } from 'tsyringe';
+import createLogger from './core/logger';
+import { ImageWatcherService } from './service/image-watcher/image-watcher.service';
 
 /** Création du logger */
 const logger = createLogger();
@@ -15,7 +15,7 @@ const imageWatcherService = container.resolve(ImageWatcherService);
  */
 export async function startCron() {
   //Définition du cron (Par défaut, tout les jours à midi)
-  const cronJob = env.CRON_JOB || "0 12 * * *"
+  const cronJob = env.CRON_JOB || '0 12 * * *';
 
   //Log
   logger.info(`Démarrage du cron ${cronJob}...`);

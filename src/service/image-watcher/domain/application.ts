@@ -1,5 +1,5 @@
-import { Application } from "../../orchestrator/domain/application";
-import { ApplicationAnnotation } from "./annotation";
+import { Application } from '../../orchestrator/domain/application';
+import { ApplicationAnnotation } from './annotation';
 
 /**
  * Application enrichie avec les annotations image-watcher

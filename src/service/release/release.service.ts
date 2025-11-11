@@ -1,11 +1,11 @@
-import { inject, injectable, singleton } from "tsyringe";
-import { ServiceProvider } from "../../core/domain/service-provider";
-import createLogger from "../../core/logger";
-import { TypeAnnotation } from "../image-watcher/domain/annotation";
-import { IReleaseProvider } from "./domain/i-release-provider";
-import { ReleaseInfo } from "./domain/release";
-import { GitHubReleaseProvider } from "./providers/github.provider";
-import { ScrapperProvider } from "./providers/scrapper.provider";
+import { inject, injectable, singleton } from 'tsyringe';
+import { ServiceProvider } from '../../core/domain/service-provider';
+import createLogger from '../../core/logger';
+import { TypeAnnotation } from '../image-watcher/domain/annotation';
+import { IReleaseProvider } from './domain/i-release-provider';
+import { ReleaseInfo } from './domain/release';
+import { GitHubReleaseProvider } from './providers/github.provider';
+import { ScrapperProvider } from './providers/scrapper.provider';
 
 /** Logger */
 const logger = createLogger();
@@ -20,7 +20,7 @@ export class ReleaseService extends ServiceProvider {
   protected providers: Map<string, IReleaseProvider> = new Map();
 
   /** Provider par défaut */
-  private defaultProviderName = "github";
+  private defaultProviderName = 'github';
 
   /**
    * Constructeur du service de release
@@ -129,7 +129,7 @@ export class ReleaseService extends ServiceProvider {
           return provider;
       }
       //Fallback scrapper si configuré
-      return this.providers.get("scrapper");
+      return this.providers.get('scrapper');
     }
 
     //Retourne le provider par défaut
@@ -137,8 +137,8 @@ export class ReleaseService extends ServiceProvider {
   }
 
   /**
-  * Interpollation des paramètres contenu dans l'url
-  */
+   * Interpollation des paramètres contenu dans l'url
+   */
   private interpolateUrl(template: string, data: Record<string, string>): string {
     //Remplacement des paramètres
     return template.replace(/\$\{(.*?)\}/g, (_, key) => data[key] ?? '');

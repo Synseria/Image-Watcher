@@ -12,7 +12,7 @@ export class ScrapperProvider implements IReleaseProvider {
   readonly providerName = 'scrapper';
 
   /** Constructeur */
-  constructor() { }
+  constructor() {}
 
   /**
    * Vérifie si la configuration minimale est renseignée
@@ -45,7 +45,6 @@ export class ScrapperProvider implements IReleaseProvider {
     //Interpolation de l'URL
     const filledUrl = this.interpolateUrl(options.urlTemplate, { ...options, repository, tag });
     try {
-
       //Appel HTTP
       const response = await fetch(filledUrl);
 

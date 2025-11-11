@@ -14,8 +14,8 @@ export class DockerHubProvider implements IRegistryProvider {
   private readonly baseUrl = 'https://registry.hub.docker.com/v2/repositories';
 
   /**
-  * Vérifie si le provider est correctement configuré
-  */
+   * Vérifie si le provider est correctement configuré
+   */
   isConfigured(): boolean {
     //DockerHub ne nécessite pas de configuration particulière
     return true;
@@ -26,13 +26,13 @@ export class DockerHubProvider implements IRegistryProvider {
    */
   async isAvailable(): Promise<boolean> {
     //Docker Hub est toujours disponible (On ignore les rates limits ici)
-    return true
+    return true;
   }
 
   /**
-  * Liste les tags disponibles pour un dépôt public Docker Hub
-  */
-  async getListeTags(repository: string, limit: number = 10): Promise<{ tag: string, digest: string }[]> {
+   * Liste les tags disponibles pour un dépôt public Docker Hub
+   */
+  async getListeTags(repository: string, limit: number = 10): Promise<{ tag: string; digest: string }[]> {
     //Docker Hub utilise "library/" pour les images officielles
     repository = repository.includes('/') ? repository : `library/${repository}`;
 
