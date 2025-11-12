@@ -1,14 +1,20 @@
 name: Auto PR to Dev
+
 on:
-  push:
+  workflow_run:
+    workflows: ["CI/CD"]
+    types: [completed]
     branches:
       - 'feature/**'
       - 'fix/**'
       - 'hotfix/**'
       - 'refactor/**'
+
 jobs:
   create-pr:
     runs-on: ubuntu-latest
+    # Ne créer la PR QUE si le workflow CI/CD a réussi
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       pull-requests: write
@@ -23,7 +29,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          pr_number=$(gh pr list --head ${{ github.ref_name }} --base dev --json number --jq '.[0].number // empty')
+          BRANCH_NAME="${{ github.event.workflow_run.head_branch }}"
+          pr_number=$(gh pr list --head "$BRANCH_NAME" --base dev --json number --jq '.[0].number // empty')
           if [ -n "$pr_number" ]; then
             echo "exists=true" >> $GITHUB_OUTPUT
             echo "pr_number=$pr_number" >> $GITHUB_OUTPUT
@@ -37,24 +44,20 @@ jobs:
         if: steps.check.outputs.exists == 'false'
         uses: repo-sync/pull-request@v2
         with:
-          source_branch: ${{ github.ref_name }}
+          source_branch: ${{ github.event.workflow_run.head_branch }}
           destination_branch: dev
-          pr_title: "[${{ github.ref_name }}] Auto PR to dev"
+          pr_title: "[${{ github.event.workflow_run.head_branch }}] Auto PR to dev"
           pr_body: |
             ## 🤖 Automated Pull Request
             
-            This PR was automatically created from branch `${{ github.ref_name }}` to `dev`.
+            This PR was automatically created from branch `${{ github.event.workflow_run.head_branch }}` to `dev`.
             
-            **Branch:** `${{ github.ref_name }}`
+            **Branch:** `${{ github.event.workflow_run.head_branch }}`
             **Target:** `dev`
             **Author:** @${{ github.actor }}
+            **CI Status:** ✅ All tests passed
             
             Please review the changes and merge when ready.
-            
-            ---
-            
-            Commits included in this PR:
-            ${{ github.event.head_commit.message }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           pr_draft: false
           pr_allow_empty: false
