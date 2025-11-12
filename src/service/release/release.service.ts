@@ -4,8 +4,8 @@ import createLogger from '../../core/logger';
 import { TypeAnnotation } from '../image-watcher/domain/annotation';
 import { IReleaseProvider } from './domain/i-release-provider';
 import { ReleaseInfo } from './domain/release';
-import { GitHubReleaseProvider } from './providers/github.provider';
-import { ScrapperProvider } from './providers/scrapper.provider';
+import { GitHubReleaseProvider } from './providers/github-provider';
+import { ScrapperProvider } from './providers/scrapper-provider';
 
 /** Logger */
 const logger = createLogger();

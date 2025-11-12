@@ -13,9 +13,10 @@
     "strictNullChecks": false,
     "noImplicitAny": true
   },
-  "include": ["src/**/*.ts"],
-  "ts-node": {
-    "esm": true,
-    "experimentalSpecifierResolution": "node"
+  "include": [
+    "src/**/*.ts"
+  ],
+  "tsc-alias": {
+    "resolveFullPaths": true,
   }
 }
