@@ -1,9 +1,10 @@
-name: Enforce Feature to Dev PRs
+name: Enforce PR Rules
 on:
   pull_request:
     branches: [master]
 jobs:
-  check-pr-target:
+  check-pr-source:
+    name: Verify PR source branch
     runs-on: ubuntu-latest
     steps:
       - name: Block non-dev branches to master
@@ -15,6 +16,7 @@ jobs:
             echo "   1. Create a PR from '${{ github.head_ref }}' to 'dev'"
             echo "   2. After merge and validation, create a PR from 'dev' to 'master'"
             echo ""
-            echo "💡 Feature branches must go through 'dev' first."
+            echo "💡 Only the 'dev' branch can be merged into 'master'."
             exit 1
           fi
+          echo "✅ PR from 'dev' to 'master' - OK"
