@@ -1,0 +1,42 @@
+name: Auto PR to Dev
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'fix/**'
+      - 'hotfix/**'
+      - 'refactor/**'
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Create Pull Request to dev
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: ${{ github.ref_name }}
+          destination_branch: dev
+          pr_title: "[${{ github.ref_name }}] Auto PR to dev"
+          pr_body: |
+            ## 🤖 Automated Pull Request
+            
+            This PR was automatically created from branch `${{ github.ref_name }}` to `dev`.
+            
+            **Branch:** `${{ github.ref_name }}`
+            **Target:** `dev`
+            **Author:** @${{ github.actor }}
+            
+            Please review the changes and merge when ready.
+            
+            ---
+            
+            Commits included in this PR:
+            ${{ github.event.head_commit.message }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_draft: false
+          pr_allow_empty: false

@@ -34,9 +34,9 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             # Pour les releases GitHub (tags vX.Y.Z)
-            type=semver,pattern={{version}},enable=${{ github.ref_type == 'tag' }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ github.ref_type == 'tag' }}
-            type=semver,pattern={{major}},enable=${{ github.ref_type == 'tag' }}
+            type=semver,pattern=v{{version}},enable=${{ github.ref_type == 'tag' }}
+            type=semver,pattern=v{{major}}.{{minor}},enable=${{ github.ref_type == 'tag' }}
+            type=semver,pattern=v{{major}},enable=${{ github.ref_type == 'tag' }}
             type=raw,value=stable,enable=${{ github.ref_type == 'tag' }}
             
             # Pour la branche master
