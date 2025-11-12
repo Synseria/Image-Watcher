@@ -16,7 +16,6 @@ jobs:
       - name: Validate semver format
         run: |
           TAG="${{ github.ref_name }}"
-          # Regex semver stricte : vX.Y.Z ou vX.Y.Z-prerelease
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
             echo "❌ ERROR: Tag '$TAG' is not a valid semver format!"
             echo ""
@@ -41,6 +40,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Setup Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -50,34 +52,30 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # Pour les releases GitHub (tags vX.Y.Z)
             type=semver,pattern=v{{version}},enable=${{ github.ref_type == 'tag' }}
             type=semver,pattern=v{{major}}.{{minor}},enable=${{ github.ref_type == 'tag' }}
             type=semver,pattern=v{{major}},enable=${{ github.ref_type == 'tag' }}
             type=raw,value=stable,enable=${{ github.ref_type == 'tag' }}
-            
-            # Pour la branche master
             type=raw,value=master,enable=${{ github.ref == 'refs/heads/master' }}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
             type=sha,prefix=master-,enable=${{ github.ref == 'refs/heads/master' }}
-            
-            # Pour la branche dev
             type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
             type=sha,prefix=dev-,enable=${{ github.ref == 'refs/heads/dev' }}
-            
-            # Pour toutes les autres branches
             type=sha,prefix=${{ github.ref_name }}-,enable=${{ github.ref != 'refs/heads/master' && github.ref != 'refs/heads/dev' && github.ref_type != 'tag' }}
+
       - name: Build & Push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
