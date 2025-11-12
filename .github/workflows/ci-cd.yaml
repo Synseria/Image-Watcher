@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      
+
       - name: Check if PR already exists
         id: check
         env:
@@ -59,24 +59,24 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
             echo "🔍 No existing PR found"
           fi
-      
+
       - name: Create Pull Request to dev
         if: steps.check.outputs.exists == 'false'
         uses: repo-sync/pull-request@v2
         with:
           source_branch: ${{ github.ref_name }}
           destination_branch: dev
-          pr_title: "[${{ github.ref_name }}] Auto PR to dev"
+          pr_title: '[${{ github.ref_name }}] Auto PR to dev'
           pr_body: |
             ## 🤖 Automated Pull Request
-            
+
             This PR was automatically created from branch `${{ github.ref_name }}` to `dev`.
-            
+
             **Branch:** `${{ github.ref_name }}`
             **Target:** `dev`
             **Author:** @${{ github.actor }}
             **CI Status:** ✅ Build & Tests passed
-            
+
             Please review the changes and merge when ready.
           github_token: ${{ secrets.GITHUB_TOKEN }}
           pr_draft: false

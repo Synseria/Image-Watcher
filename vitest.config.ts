@@ -1,6 +1,6 @@
+import dotenv from 'dotenv';
 import 'reflect-metadata';
 import { defineConfig } from 'vitest/config';
-import dotenv from 'dotenv';
 
 dotenv.config({ path: process.env.ENV_FILE || '.env.test' });
 
@@ -10,9 +10,7 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.ts'],
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html', 'text-summary'],
-      reportsDirectory: './coverage'
+      exclude: ['**/*-provider.ts']
     }
   }
 });

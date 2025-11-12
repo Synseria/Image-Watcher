@@ -11,7 +11,7 @@ export default [
       parser: tsparser,
       parserOptions: {
         ecmaVersion: 'latest',
-        sourceType: 'module',
+        sourceType: 'module'
       },
       globals: {
         console: 'readonly',
@@ -25,21 +25,21 @@ export default [
         setInterval: 'readonly',
         setTimeout: 'readonly',
         clearInterval: 'readonly',
-        clearTimeout: 'readonly',
-      },
+        clearTimeout: 'readonly'
+      }
     },
     plugins: {
       '@typescript-eslint': tseslint,
-      prettier: prettier,
+      prettier: prettier
     },
     rules: {
       ...tseslint.configs.recommended.rules,
       'prettier/prettier': 'error',
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    },
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }]
+    }
   },
   {
-    ignores: ['dist/', 'node_modules/', '*.config.js'],
-  },
+    ignores: ['dist/', 'node_modules/', '*.config.js']
+  }
 ];
