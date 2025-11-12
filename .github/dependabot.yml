@@ -3,50 +3,50 @@ version: 2
 
 updates:
   # Dépendances npm (package.json)
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "weekly"  # Vérifie chaque semaine
-      day: "monday"       # Le lundi
-      time: "09:00"       # À 9h
-    open-pull-requests-limit: 10  # Max 10 PR ouvertes en même temps
-    
+      interval: 'weekly' # Vérifie chaque semaine
+      day: 'monday' # Le lundi
+      time: '09:00' # À 9h
+    open-pull-requests-limit: 10 # Max 10 PR ouvertes en même temps
+
     #Regrouper les mises à jour mineures
     groups:
       dependencies:
         patterns:
-          - "*"
+          - '*'
         update-types:
-          - "minor"
-          - "patch"
-    
+          - 'minor'
+          - 'patch'
+
     # Labels automatiques
     labels:
-      - "dependencies"
-      - "npm"
-    
+      - 'dependencies'
+      - 'npm'
+
     # Assignation automatique (optionnel)
     assignees:
-      - "Synseria"
-    
+      - 'Synseria'
+
   # GitHub Actions (workflows)
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
     labels:
-      - "dependencies"
-      - "github-actions"
+      - 'dependencies'
+      - 'github-actions'
 
   # Docker (si vous avez un Dockerfile avec FROM)
-  - package-ecosystem: "docker"
-    directory: "/"
+  - package-ecosystem: 'docker'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
     labels:
-      - "dependencies"
-      - "docker"
+      - 'dependencies'
+      - 'docker'

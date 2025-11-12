@@ -14,20 +14,20 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
-      
+
       - name: Create .env.test if missing
         run: |
           if [ ! -f .env.test ]; then
             echo "Creating .env.test with default values"
             touch .env.test
           fi
-      
+
       - name: Lint
         run: npm run lint
-      
+
       - name: Tests with coverage
         run: npm test -- --coverage
-      
+
       - name: Coverage Summary
         if: always()
         run: |
@@ -43,7 +43,7 @@ jobs:
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📦 **Download full HTML report** from artifacts below to view detailed line-by-line coverage" >> $GITHUB_STEP_SUMMARY
-      
+
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v5
         if: always()
