@@ -3,10 +3,6 @@ name: Tests
 on:
   workflow_call:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   test:
     name: Tests & Lint
@@ -18,20 +14,36 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
+      
+      - name: Create .env.test if missing
+        run: |
+          if [ ! -f .env.test ]; then
+            echo "Creating .env.test with default values"
+            touch .env.test
+          fi
+      
       - name: Lint
         run: npm run lint
+      
       - name: Tests with coverage
-        run: npm test -- --coverage 2>&1 | tee coverage/coverage-output.txt
+        run: npm test -- --coverage
+      
       - name: Coverage Summary
         if: always()
         run: |
           echo "## 📊 Code Coverage Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          grep -A 6 "Coverage summary" coverage/coverage-output.txt || echo "Coverage data not found"
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          if [ -f coverage/coverage-final.json ]; then
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "Coverage reports generated successfully" >> $GITHUB_STEP_SUMMARY
+            echo "Check the detailed HTML report in artifacts below" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Coverage data not generated" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📦 **Download full HTML report** from artifacts below to view detailed line-by-line coverage" >> $GITHUB_STEP_SUMMARY
+      
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v5
         if: always()
