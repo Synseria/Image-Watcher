@@ -1,6 +1,12 @@
 name: Tests
+
 on:
   workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Tests & Lint
@@ -9,10 +15,27 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
       - run: npm ci
       - name: Lint
         run: npm run lint
-      - name: Tests
-        run: npm test
+      - name: Tests with coverage
+        run: npm test -- --coverage 2>&1 | tee coverage/coverage-output.txt
+      - name: Coverage Summary
+        if: always()
+        run: |
+          echo "## 📊 Code Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          grep -A 6 "Coverage summary" coverage/coverage-output.txt || echo "Coverage data not found"
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **Download full HTML report** from artifacts below to view detailed line-by-line coverage" >> $GITHUB_STEP_SUMMARY
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
