@@ -6,5 +6,6 @@
   "bracketSpacing": true,
   "trailingComma": "none",
   "proseWrap": "always",
-  "jsxBracketSameLine": true
+  "jsxBracketSameLine": true,
+  "tabWidth": 2
 }

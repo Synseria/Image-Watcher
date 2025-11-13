@@ -6,7 +6,7 @@ import { IAIProvider } from './domain/i-ai';
 import { OpenAIProvider } from './providers/open-ai-provider';
 
 /** Logger */
-const logger = createLogger();
+const logger = createLogger(import.meta);
 
 /**
  * Service centralisé pour gérer plusieurs fournisseurs d'IA
@@ -33,7 +33,7 @@ export class AIService extends ServiceProvider {
    */
   protected initializeProviders(providers: IAIProvider[]): void {
     //Log
-    logger.info(`Début de l'enregistrement des fournisseurs d'intelligence artificielle.`);
+    logger.debug(`Début de l'enregistrement des fournisseurs d'intelligence artificielle.`);
 
     //Itération sur les fournisseurs
     for (const provider of providers) {
@@ -43,7 +43,7 @@ export class AIService extends ServiceProvider {
         this.providers.set(provider.providerName, provider);
 
         //Log
-        logger.info(`Le fournisseur d'intelligence artificielle "${provider.providerName}" a été enregistré avec succès.`);
+        logger.debug(`Le fournisseur d'intelligence artificielle "${provider.providerName}" a été enregistré avec succès.`);
       } else {
         //Log
         logger.debug(`Le fournisseur d'intelligence artificielle "${provider.providerName}" a été ignoré car sa configuration est incomplète.`);
@@ -54,6 +54,9 @@ export class AIService extends ServiceProvider {
     if (this.providers.size === 0)
       //Log
       logger.warn(`Aucun fournisseur d'intelligence artificielle n'est configuré ; le service fonctionne actuellement en mode silencieux.`);
+    else
+      //Log
+      logger.info(`Les fournisseurs d'intelligence artificielle actifs sont: ${Array.from(this.providers.keys()).join(', ')}.`);
   }
 
   /**

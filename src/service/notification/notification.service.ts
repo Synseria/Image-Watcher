@@ -8,7 +8,7 @@ import { TelegramProvider } from './providers/telegram-provider';
 import { ServiceProvider } from '../../core/domain/service-provider';
 
 /** Logger */
-const logger = createLogger();
+const logger = createLogger(import.meta);
 
 /**
  * Service centralisé pour gérer plusieurs canaux de notification
@@ -35,7 +35,7 @@ export class NotificationService extends ServiceProvider {
    */
   protected initializeProviders(providers: INotificationProvider[]): void {
     //Log
-    logger.info(`Début de l'enregistrement des fournisseurs de notification.`);
+    logger.debug(`Début de l'enregistrement des fournisseurs de notification.`);
 
     //Itération sur les fournisseurs
     for (const provider of providers) {
@@ -45,7 +45,7 @@ export class NotificationService extends ServiceProvider {
         this.providers.set(provider.providerName, provider);
 
         //Log
-        logger.info(`Le fournisseur de notification "${provider.providerName}" a été enregistré avec succès.`);
+        logger.debug(`Le fournisseur de notification "${provider.providerName}" a été enregistré avec succès.`);
       } else
         //Log
         logger.debug(`Le fournisseur de notification "${provider.providerName}" a été ignoré car sa configuration est incomplète.`);
@@ -55,6 +55,9 @@ export class NotificationService extends ServiceProvider {
     if (this.providers.size === 0)
       //Log
       logger.warn(`Aucun fournisseur de notification n'est configuré ; le service fonctionne actuellement en mode silencieux.`);
+    else
+      //Log
+      logger.info(`Les fournisseurs de notification actifs sont: ${Array.from(this.providers.keys()).join(', ')}.`);
   }
 
   /**

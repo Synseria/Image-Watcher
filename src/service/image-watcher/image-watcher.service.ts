@@ -15,7 +15,7 @@ import { AnnotationMeta, ApplicationAnnotation, TypeAnnotation, TypeMode, TypePa
 import { WatchedApplication } from './domain/application';
 
 /** Création du logger pour ce module **/
-const logger = createLogger();
+const logger = createLogger(import.meta);
 
 /**
  * Service métier sur la logique applicative
@@ -124,9 +124,12 @@ export class ImageWatcherService {
    * Mise à jour de l'application
    */
   async upgradeApplication(application: WatchedApplication, nextVersion: string): Promise<boolean> {
+    //Récupération de la version courante
     const currentTag = application.imageInformation.tag;
 
+    //Définition des nouveaux paramètres
     const newParams: any = {};
+
     //Définition
     newParams[TypeAnnotation.LAST_UPDATED] = new Date();
     newParams[TypeAnnotation.LAST_UPDATED_VERSION] = nextVersion;
@@ -267,11 +270,7 @@ export class ImageWatcherService {
         //Vérification de la présence de nouvelle versions, ou si les délais sont dépassé
         if (newVersions.length || shouldRemind) {
           //Récupération du changelog
-          const changelog = await this.getAIChangelog(
-            application.imageInformation.repository,
-            newVersions.map((tag) => tag.original),
-            application
-          );
+          const changelog = await this.getAIChangelog(application.imageInformation.repository,newVersions.map((tag) => tag.original),application);
 
           //Définition des paramètres
           const newParams: any = {};
@@ -287,7 +286,7 @@ export class ImageWatcherService {
           //Vérification du succès
           if (success) {
             //Construction de l'url
-            const webhookUrl = `${env.BASE_URL ? env.BASE_URL : `http://localhost:${env.PORT || '3000'}`}/api/v1/image-watcher/upgrade/${application.namespace}/${application.name}?token=${newParams[TypeAnnotation.TOKEN_UPDATE]}&version=${nextVersion}`;
+            const webhookUrl = `${env.BASE_URL ? env.BASE_URL : `http://localhost:${env.PORT || '3000'}`}/api/image-watcher/upgrade/${application.namespace}/${application.name}?token=${newParams[TypeAnnotation.TOKEN_UPDATE]}&version=${nextVersion}`;
 
             //Envoi de la notification
             await this.notificationService.broadcast([...changelog, `\n\n**[Déployer la version ${nextVersion}](${webhookUrl})**`], {

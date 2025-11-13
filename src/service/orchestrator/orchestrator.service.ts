@@ -8,7 +8,7 @@ import { IOrchestratorProvider } from './domain/i-orchestrator-provider';
 import { KubeProvider } from './providers/kube-provider';
 
 /** Création du logger pour ce module **/
-const logger = createLogger();
+const logger = createLogger(import.meta);
 
 /**
  * Service principal d’orchestration.
@@ -36,7 +36,7 @@ export class OrchestratorService extends ServiceProvider {
    */
   protected initializeProviders(providers: IOrchestratorProvider[]): void {
     //Log
-    logger.info(`Début de l'enregistrement des fournisseurs d'orchestration.`);
+    logger.debug(`Début de l'enregistrement des fournisseurs d'orchestration.`);
 
     //Itération sur les fournisseurs
     for (const provider of providers) {
@@ -46,7 +46,7 @@ export class OrchestratorService extends ServiceProvider {
         this.providers.set(provider.providerName, provider);
 
         //Log
-        logger.info(`Le fournisseur d'orchestration "${provider.providerName}" a été enregistré avec succès.`);
+        logger.debug(`Le fournisseur d'orchestration "${provider.providerName}" a été enregistré avec succès.`);
       } else {
         //Log
         logger.debug(`Le fournisseur d'orchestration "${provider.providerName}" a été ignoré (configuration incomplète).`);
@@ -54,13 +54,13 @@ export class OrchestratorService extends ServiceProvider {
     }
 
     //Vérification du nombre de provider disponnible
-    if (this.providers.size === 0) {
+    if (this.providers.size === 0)
       //Log
       logger.warn(`Aucun fournisseur d'orchestration n'est configuré ; le service fonctionne actuellement en mode silencieux.`);
-    } else {
+    else
       //Log
-      logger.info(`Le fournisseur d'orchestration actif est: ${this.providers.values().next().value}`);
-    }
+      logger.info(`Le fournisseur d'orchestration actif est: ${Array.from(this.providers.keys()).join(', ')}.`);
+
   }
 
   /**

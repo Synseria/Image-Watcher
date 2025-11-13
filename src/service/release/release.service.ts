@@ -8,7 +8,7 @@ import { GitHubReleaseProvider } from './providers/github-provider';
 import { ScrapperProvider } from './providers/scrapper-provider';
 
 /** Logger */
-const logger = createLogger();
+const logger = createLogger(import.meta);
 
 /**
  * Service centralisé pour gérer plusieurs canaux de release
@@ -38,7 +38,7 @@ export class ReleaseService extends ServiceProvider {
    */
   protected initializeProviders(providers: IReleaseProvider[]): void {
     //Log
-    logger.info(`Début de l'enregistrement des fournisseurs de release.`);
+    logger.debug(`Début de l'enregistrement des fournisseurs de release.`);
 
     //Itération sur les fournisseurs
     for (const provider of providers) {
@@ -48,7 +48,7 @@ export class ReleaseService extends ServiceProvider {
         this.providers.set(provider.providerName, provider);
 
         //Log
-        logger.info(`Le fournisseur de release "${provider.providerName}" a été enregistré avec succès.`);
+        logger.debug(`Le fournisseur de release "${provider.providerName}" a été enregistré avec succès.`);
       } else {
         //Log
         logger.debug(`Le fournisseur de release "${provider.providerName}" a été ignoré car sa configuration est incomplète.`);
@@ -59,6 +59,9 @@ export class ReleaseService extends ServiceProvider {
     if (this.providers.size === 0)
       //Log
       logger.warn(`Aucun fournisseur de release n'est configuré ; le service fonctionne actuellement en mode silencieux.`);
+    else
+      //Log
+      logger.info(`Les fournisseurs de release actifs sont: ${Array.from(this.providers.keys()).join(', ')}.`);
   }
 
   /**

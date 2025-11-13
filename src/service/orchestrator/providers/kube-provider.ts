@@ -116,10 +116,24 @@ export class KubeProvider implements IOrchestratorProvider {
 
     //Récupération des digests pour chaque application
     const flat = await Promise.all(
-      apps.map(async (a) => ({
-        ...a,
-        imageInformation: { digest: await this.readDigest(a) }
-      }))
+      apps.map(async (a) => {
+        try {
+          //Lecture du digest
+          const digest = await this.readDigest(a);
+
+          //Retour de l'application avec le digest
+          return {
+            ...a,
+            imageInformation: { digest }
+          };
+        } catch {
+          //En cas d'erreur (ex: droits RBAC insuffisants), on retourne l'app sans digest
+          return {
+            ...a,
+            imageInformation: { digest: null }
+          };
+        }
+      })
     );
 
     //Retour des applications
