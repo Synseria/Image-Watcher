@@ -1,23 +1,20 @@
-import { format, relative } from 'path';
 import pino from 'pino';
-import { cwd, env } from 'process';
-import { fileURLToPath } from 'url';
-import { toISOStringWithTZ } from '../utils/date-utils';
-import PinoPretty from 'pino-pretty';
+import { env } from 'process';
 
-//Définition du format
+/** Définition du format */
 const LOG_FORMAT: 'json' | 'pretty' = env.LOG_FORMAT && ['json', 'pretty'].includes(env.LOG_FORMAT.toLowerCase()) ? (env.LOG_FORMAT.toLowerCase() as 'json' | 'pretty') : 'pretty';
 
-//Définition du niveau de log
+/** Définition du niveau de log */
 const LOG_LEVEL: string = env.LOG_LEVEL || 'info';
 
-//Définition du nom de l'application
+/** Définition du nom de l'application */
 const APP_NAME = env.APP_NAME || 'image-watcher';
 
+/** Activation d'OpenTelemetry */
 const OTEL_ENABLED = env.OTEL_ENABLED === 'true' || false;
 
-//Définition du fuseau horaire
-const TZ = env.TZ || 'Europe/Paris';
+//Définition de l'environnement
+const ENV = env.NODE_ENV || 'development';
 
 //Configuration du logger Pino
 const logger = pino({
@@ -30,7 +27,7 @@ const logger = pino({
         options: {
           colorize: true,
           messageFormat: `[{module}] {msg}`,
-          translateTime: 'HH:MM:ss',
+          translateTime: ENV === 'development' ? 'SYS:HH:MM:ss' : 'SYS:yyyy-mm-dd HH:MM:ss Z',
           ignore: 'app,module',
         }
       } : {
