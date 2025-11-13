@@ -20,12 +20,14 @@ export function parseImageName(imageName: string): { registry: string; repositor
   }
 
   //Vérification de la présence d'un registre explicite
-  //Un registry contient un '.' ou un ':' (pour le port)
   const segments = namePart.split('/');
 
+  //Vérification du premier segment
   if (segments.length > 1 && (segments[0].includes('.') || segments[0].includes(':'))) {
     //Le premier segment est le registry
     registry = segments.shift()!;
+
+    //Reconstruction du namePart
     namePart = segments.join('/');
   }
 
@@ -33,7 +35,11 @@ export function parseImageName(imageName: string): { registry: string; repositor
   if (namePart.includes(':')) {
     //Lecture du tag
     const lastColonIndex = namePart.lastIndexOf(':');
+
+    //Extraction du tag et du nom
     tag = namePart.substring(lastColonIndex + 1) || 'latest';
+
+    //Mise à jour du namePart
     namePart = namePart.substring(0, lastColonIndex);
   }
 
