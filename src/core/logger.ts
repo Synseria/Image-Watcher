@@ -1,24 +1,26 @@
 import { relative } from 'path';
 import pino from 'pino';
-import { cwd } from 'process';
+import { cwd, env } from 'process';
 import { fileURLToPath } from 'url';
 
-//Détermine si l'environnement est en développement
-const isDev = process.env.NODE_ENV !== 'production';
+//Définition du format
+const LOG_FORMAT: 'json' | 'pretty' = env.LOG_FORMAT && ['json', 'pretty'].includes(env.LOG_FORMAT.toLowerCase()) ? (env.LOG_FORMAT.toLowerCase() as 'json' | 'pretty') : 'pretty';
+
+//Définition du niveau de log
+const LOG_LEVEL: string = env.LOG_LEVEL || 'info';
 
 //Configuration du logger Pino
 const logger = pino({
-  level: process.env.LOG_LEVEL || 'info',
-  transport: isDev
-    ? {
-        target: 'pino-pretty',
-        options: {
-          colorize: true,
-          translateTime: 'HH:MM:ss',
-          ignore: 'pid,hostname'
-        }
-      }
-    : undefined
+  level: LOG_LEVEL,
+  timestamp: () => `,"time":"${new Date().toISOString()}"`,
+  transport: LOG_FORMAT === 'pretty' ? {
+    target: 'pino-pretty',
+    options: {
+      colorize: true,
+      translateTime: 'HH:MM:ss',
+      ignore: 'pid,hostname'
+    }
+  } : undefined
 });
 
 /**
