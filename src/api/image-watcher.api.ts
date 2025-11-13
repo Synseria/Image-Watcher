@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { container } from 'tsyringe';
-import { TypeAnnotation } from '../../service/image-watcher/domain/annotation';
-import { ImageWatcherService } from '../../service/image-watcher/image-watcher.service';
+import { TypeAnnotation } from '../service/image-watcher/domain/annotation';
+import { ImageWatcherService } from '../service/image-watcher/image-watcher.service';
 
 /** Création du router pour ce module */
 const router = Router();
