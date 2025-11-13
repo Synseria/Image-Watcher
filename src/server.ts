@@ -3,6 +3,8 @@ import apiRoutes from './api/index';
 import createLogger from './core/logger';
 import { env } from 'process';
 import { pinoHttp } from 'pino-http';
+import { container } from 'tsyringe';
+import { OrchestratorService } from './service/orchestrator/orchestrator.service';
 
 /** Création du logger */
 const logger = createLogger(import.meta);
@@ -40,6 +42,38 @@ export async function startServer() {
   //Définition des routes
   app.use('/api', apiRoutes);
 
+  //Endpoint de liveness (toujours OK si le processus tourne)
+  app.get('/healthz', (req, res) => healthz(req, res));
+
+  //Endpoint de readiness (vérification basique des services critiques)
+  app.get('/readyz', async (req, res) => readyz(req, res));
+
   //Lancement du serveur
   return app.listen(PORT, () => logger.info(`Serveur actif sur le port ${PORT}`));
+}
+
+/**
+ * Endpoint de liveness (toujours OK si le processus tourne)
+ */
+async function healthz(req: express.Request, res: express.Response) {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+}
+
+/**
+ * Endpoint de readiness (vérification basique des services critiques)
+ */
+async function readyz(req: express.Request, res: express.Response) {
+  try {
+    //Récupération du service d'orchestration
+    const orchestrator = container.resolve(OrchestratorService);
+
+    //Appel léger pour vérifier l'accès au provider (liste éventuellement vide)
+    await orchestrator.listeApplications();
+
+    //Succès
+    res.json({ status: 'ready', timestamp: new Date().toISOString() });
+  } catch (err: any) {
+    //Non prêt
+    res.status(503).json({ status: 'not-ready', error: err?.message || 'Initialisation en cours', timestamp: new Date().toISOString() });
+  }
 }
