@@ -5,7 +5,7 @@ import { env } from 'process';
 const LOG_FORMAT: 'json' | 'pretty' = env.LOG_FORMAT && ['json', 'pretty'].includes(env.LOG_FORMAT.toLowerCase()) ? (env.LOG_FORMAT.toLowerCase() as 'json' | 'pretty') : 'pretty';
 
 /** Définition du niveau de log */
-const LOG_LEVEL: string = env.LOG_LEVEL || 'info';
+const LOG_LEVEL: 'error' | 'warn' | 'info' | 'debug' | 'trace' = env.LOG_LEVEL && ['error', 'warn', 'info', 'debug', 'trace'].includes(env.LOG_LEVEL.toLowerCase()) ? (env.LOG_LEVEL.toLowerCase() as 'error' | 'warn' | 'info' | 'debug' | 'trace') : 'info';
 
 /** Définition du nom de l'application */
 const APP_NAME = env.APP_NAME || 'image-watcher';
@@ -21,28 +21,29 @@ const logger = pino({
   level: LOG_LEVEL,
   timestamp: pino.stdTimeFunctions.isoTime,
   transport: {
-    targets: [LOG_FORMAT === 'pretty' ?
-      {
+    targets: [
+      LOG_FORMAT === 'pretty' && {
         target: 'pino-pretty',
         options: {
           colorize: true,
           messageFormat: `[{module}] {msg}`,
-          translateTime: ENV === 'development' ? 'SYS:HH:MM:ss' : 'SYS:yyyy-mm-dd HH:MM:ss Z',
-          ignore: 'app,module',
+          translateTime: ENV === 'development' ? 'SYS:HH:MM:ss' : 'SYS:standard',
+          ignore: 'app,module,pid,hostname',
         }
-      } : {
+      },
+      LOG_FORMAT === 'json' && {
         target: 'pino/file',
         options: {
           destination: 1
         }
       },
-    OTEL_ENABLED ? {
-      target: 'pino-opentelemetry-transport',
-    } : undefined
-    ].filter(Boolean),
-  },
-  base: {
-    app: APP_NAME,
+      OTEL_ENABLED && {
+        target: 'pino-opentelemetry-transport',
+        options: {
+          serviceName: APP_NAME,
+        }
+      }
+    ],
   },
   serializers: {
     req: pino.stdSerializers.req,

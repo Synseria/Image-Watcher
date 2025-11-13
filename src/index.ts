@@ -2,18 +2,20 @@ import 'dotenv/config';
 import { env } from 'process';
 import 'reflect-metadata';
 import { container } from 'tsyringe';
+import { BANNER } from './banner';
 import './core/globals';
 import createLogger from './core/logger';
 import { startCron } from './cron';
 import { startServer } from './server';
 import { ImageWatcherService } from './service/image-watcher/image-watcher.service';
-import { BANNER } from './banner';
 
 /** Logger */
 const logger = createLogger(import.meta);
 
 /** Affichage du banner */
-logger.info(BANNER);
+if (env.LOG_FORMAT?.toLowerCase() === 'pretty')
+  //Affichage du banner en mode pretty
+  logger.info(BANNER);
 
 /** Démarrage du serveur */
 const server = startServer();
@@ -28,6 +30,7 @@ startCron();
 
     //Vérification de la présence de RUN ON BOOT
     if (env.RUN_ON_BOOT === 'true') {
+      //Log
       logger.info('RUN_ON_BOOT actif — démarrage automatique du watcher...');
 
       //Début du processus
