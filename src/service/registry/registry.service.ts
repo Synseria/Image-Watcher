@@ -37,7 +37,7 @@ export class RegistryService extends ServiceProvider {
    */
   protected initializeProviders(providers: IRegistryProvider[]): void {
     //Log
-    logger.info(`Début de l'enregistrement des fournisseurs de registre.`);
+    logger.debug(`Début de l'enregistrement des fournisseurs de registre.`);
 
     //Itération sur les fournisseurs
     for (const provider of providers) {
@@ -47,7 +47,7 @@ export class RegistryService extends ServiceProvider {
         this.providers.set(provider.providerName, provider);
 
         //Log
-        logger.info(`Le fournisseur de registre "${provider.providerName}" a été enregistré avec succès.`);
+        logger.debug(`Le fournisseur de registre "${provider.providerName}" a été enregistré avec succès.`);
       } else {
         //Log
         logger.debug(`Le fournisseur de registre "${provider.providerName}" a été ignoré car sa configuration est incomplète.`);
@@ -55,12 +55,13 @@ export class RegistryService extends ServiceProvider {
     }
 
     //Vérification du nombre de provider disponnible
-    if (this.providers.size === 0) {
+    if (this.providers.size === 0)
       //Log
       logger.warn(`Aucun fournisseur de registre n'est configuré ; le service fonctionne actuellement en mode silencieux.`);
-    } else {
+    else
+      //Log
       logger.info(`Les fournisseurs de registre actifs sont: ${Array.from(this.providers.keys()).join(', ')}.`);
-    }
+
   }
 
   // /**
