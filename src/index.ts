@@ -7,9 +7,13 @@ import createLogger from './core/logger';
 import { startCron } from './cron';
 import { startServer } from './server';
 import { ImageWatcherService } from './service/image-watcher/image-watcher.service';
+import { BANNER } from './banner';
 
 /** Logger */
 const logger = createLogger(import.meta);
+
+/** Affichage du banner */
+logger.info(BANNER);
 
 /** Démarrage du serveur */
 const server = startServer();
