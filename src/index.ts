@@ -9,19 +9,19 @@ import { startServer } from './server';
 import { ImageWatcherService } from './service/image-watcher/image-watcher.service';
 
 /** Logger */
-const logger = createLogger();
-
-/** Service de gestion des images */
-const imageWatcherService = container.resolve(ImageWatcherService);
+const logger = createLogger(import.meta);
 
 /** Démarrage du serveur */
-startServer();
+const server = startServer();
 
 /** Démarrage des tâches planifées */
 startCron();
 
 (async () => {
   try {
+    //Définition du service
+    const imageWatcherService = container.resolve(ImageWatcherService);
+
     //Vérification de la présence de RUN ON BOOT
     if (env.RUN_ON_BOOT === 'true') {
       logger.info('RUN_ON_BOOT actif — démarrage automatique du watcher...');
@@ -34,3 +34,21 @@ startCron();
     logger.fatal(error, "Erreur lors de l'utilisation du service : %s", (error as Error).message);
   }
 })();
+
+
+/**
+ * Gestion de l'arrêt du serveur
+ */
+process.on('SIGTERM', async () => {
+  //Log
+  logger.info('SIGTERM, Arrêt du serveur...');
+
+  //Fermeture du serveur
+  (await server).close(() => {
+    //Log
+    logger.info('Serveur arrêté.');
+
+    //Exit
+    process.exit(0);
+  });
+});

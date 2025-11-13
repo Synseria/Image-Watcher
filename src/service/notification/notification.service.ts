@@ -8,7 +8,7 @@ import { TelegramProvider } from './providers/telegram-provider';
 import { ServiceProvider } from '../../core/domain/service-provider';
 
 /** Logger */
-const logger = createLogger();
+const logger = createLogger(import.meta);
 
 /**
  * Service centralisé pour gérer plusieurs canaux de notification

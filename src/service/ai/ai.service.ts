@@ -6,7 +6,7 @@ import { IAIProvider } from './domain/i-ai';
 import { OpenAIProvider } from './providers/open-ai-provider';
 
 /** Logger */
-const logger = createLogger();
+const logger = createLogger(import.meta);
 
 /**
  * Service centralisé pour gérer plusieurs fournisseurs d'IA

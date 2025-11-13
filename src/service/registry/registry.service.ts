@@ -7,7 +7,7 @@ import { GhcrProvider } from './providers/ghcr-provider';
 import { parseImageName } from '../../utils/image-utils';
 
 /** Création du logger pour ce module **/
-const logger = createLogger();
+const logger = createLogger(import.meta);
 
 /**
  * Service des registres

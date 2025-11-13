@@ -15,7 +15,7 @@ import { AnnotationMeta, ApplicationAnnotation, TypeAnnotation, TypeMode, TypePa
 import { WatchedApplication } from './domain/application';
 
 /** Création du logger pour ce module **/
-const logger = createLogger();
+const logger = createLogger(import.meta);
 
 /**
  * Service métier sur la logique applicative

@@ -8,7 +8,7 @@ import { IOrchestratorProvider } from './domain/i-orchestrator-provider';
 import { KubeProvider } from './providers/kube-provider';
 
 /** Création du logger pour ce module **/
-const logger = createLogger();
+const logger = createLogger(import.meta);
 
 /**
  * Service principal d’orchestration.

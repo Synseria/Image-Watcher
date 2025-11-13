@@ -8,7 +8,7 @@ import { GitHubReleaseProvider } from './providers/github-provider';
 import { ScrapperProvider } from './providers/scrapper-provider';
 
 /** Logger */
-const logger = createLogger();
+const logger = createLogger(import.meta);
 
 /**
  * Service centralisé pour gérer plusieurs canaux de release

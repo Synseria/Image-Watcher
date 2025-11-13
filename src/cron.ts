@@ -5,7 +5,7 @@ import createLogger from './core/logger';
 import { ImageWatcherService } from './service/image-watcher/image-watcher.service';
 
 /** Création du logger */
-const logger = createLogger();
+const logger = createLogger(import.meta);
 
 /** Injection de dépendance */
 const imageWatcherService = container.resolve(ImageWatcherService);
@@ -36,4 +36,6 @@ export async function startCron() {
       logger.error(err, `Erreur lors de l'exécution du cron job 'Image-Watcher`);
     }
   });
+
+  return cron;
 }
