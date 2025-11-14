@@ -25,6 +25,8 @@ jobs:
     name: 2️⃣ Tests & Coverage
     uses: ./.github/workflows/test.yaml
     needs: build
+    permissions:
+      contents: write
 
   # 3️⃣ Auto PR vers dev (seulement pour feature/fix/hotfix/refactor)
   auto-pr:
