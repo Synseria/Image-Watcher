@@ -6,7 +6,7 @@ const originalFetch = globalThis.fetch;
 /**
  * Réecriture globale de fetch pour ajouter du logging
  */
-globalThis.fetch = async (url, options = {}, logger = createLogger()) => {
+globalThis.fetch = async (url, options = {}, logger = createLogger(import.meta)) => {
   //Mesure du temps de la requête
   const start = performance.now();
 

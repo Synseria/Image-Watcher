@@ -31,18 +31,19 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 
 # Variables d'environnement par défaut
-ENV PORT=3000
-ENV READINESS_STRICT=true
-ENV NODE_ENV=production
-ENV IMAGE_WATCHER_SCHEDULE=0 */3 * * *
-ENV IMAGE_WATCHER_STRATEGY=MAJOR
-ENV TZ=Europe/Paris
-ENV LOG_FORMAT=pretty
-ENV BASE_URL=http://localhost:3000
-ENV RUN_ON_BOOT=false
-ENV IMAGE_WATCHER_MODE=NOTIFICATION
-ENV OTEL_ENABLED=false
-ENV OTEL_SERVICE_NAME=image-watcher
+ENV PORT="3000"
+ENV READINESS_STRICT="true"
+ENV NODE_ENV="production"
+ENV IMAGE_WATCHER_SCHEDULE="0 */3 * * *"
+ENV IMAGE_WATCHER_STRATEGY="MAJOR"
+ENV TZ="Europe/Paris"
+ENV LOG_FORMAT="pretty"
+ENV LOG_LEVEL="info"
+ENV BASE_URL="http://localhost:3000"
+ENV RUN_ON_BOOT="false"
+ENV IMAGE_WATCHER_MODE="NOTIFICATION"
+ENV OTEL_ENABLED="false"
+ENV OTEL_SERVICE_NAME="image-watcher"
 
 # Commande par défaut
 CMD ["node", "dist/index.js"]
