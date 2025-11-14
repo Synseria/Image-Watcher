@@ -102,7 +102,7 @@ export class ImageWatcherService {
     @inject(OrchestratorService) private orchestratorService: OrchestratorService,
     @inject(AIService) private aiService: AIService,
     @inject(ReleaseService) private releaseService: ReleaseService
-  ) {}
+  ) { }
 
   /**
    * Récupération d'une application
@@ -180,7 +180,7 @@ export class ImageWatcherService {
     //Itération sur les applications
     for (const app of listeApplications) {
       //Vérification de la présence d'image-watcher
-      if (Object.keys(app.annotations).some((v) => v.includes('image-watcher')) || app.image === 'mosquitto')
+      if (Object.keys(app.annotations).some((v) => v.includes('image-watcher')))
         //Traitement de l'application
         await this.processApplication(app);
     }
@@ -201,7 +201,7 @@ export class ImageWatcherService {
       logger.info(`Traitement de l'application "${application.namespace}/${application.name}" (mode=${application.parsedAnnotations[TypeAnnotation.MODE]}, stratégie=${application.parsedAnnotations[TypeAnnotation.STRATEGY]}).`);
 
       //Vérification du mode DISABLED
-      if (application.parsedAnnotations[TypeAnnotation.MODE] == TypeMode.DISABLED)
+      if (application.parsedAnnotations[TypeAnnotation.MODE] == TypeMode.DISABLED || application.parsedAnnotations[TypeAnnotation.WATCH] === false)
         //Fin du traitement
         return;
 
@@ -212,24 +212,21 @@ export class ImageWatcherService {
       const currentVersion = await this.getCurrentVersion(application, listeTags);
 
       //Analyse des versions
-      const versions = await analyzeSemverVersions(
-        currentVersion,
-        listeTags.map((tag) => tag.tag)
-      );
+      const mapSemvers = await analyzeSemverVersions(currentVersion, listeTags.map((tag) => tag.tag));
 
       //Vérification du la stratégie
       if (application.parsedAnnotations[TypeAnnotation.STRATEGY] === TypeStrategy.ALL) {
         //Définitions de la liste des nouveaux tags
-        listeNewests = versions.all;
+        listeNewests = mapSemvers.all;
       } else if (application.parsedAnnotations[TypeAnnotation.STRATEGY] === TypeStrategy.MAJOR) {
         //Définitions de la liste des nouveaux tags
-        listeNewests = [...versions.majors, ...versions.minors, ...versions.patches];
+        listeNewests = [...mapSemvers.majors, ...mapSemvers.minors, ...mapSemvers.patches];
       } else if (application.parsedAnnotations[TypeAnnotation.STRATEGY] === TypeStrategy.MINOR) {
         //Définitions de la liste des nouveaux tags
-        listeNewests = [...versions.minors, ...versions.patches];
+        listeNewests = [...mapSemvers.minors, ...mapSemvers.patches];
       } else if (application.parsedAnnotations[TypeAnnotation.STRATEGY] === TypeStrategy.PATCH) {
         //Définitions de la liste des nouveaux tags
-        listeNewests = [...versions.patches];
+        listeNewests = [...mapSemvers.patches];
       }
 
       //Vérification de la présence de nouvelle version
@@ -239,7 +236,9 @@ export class ImageWatcherService {
 
         //Fin de traitement
         return;
-      }
+      } else
+        //Log
+        logger.info(`Détection de ${listeNewests.length} nouvelle(s) version(s) pour "${application.namespace}/${application.name}". [${listeNewests.map((t) => t.original).join(', ')}]`);
 
       //Définition de la nouvelle version
       const nextVersion: string = listeNewests[0].original;
@@ -250,11 +249,7 @@ export class ImageWatcherService {
         logger.info(`Mise à jour de l'application "${application.namespace}/${application.name}" depuis ${currentVersion} vers ${nextVersion} (mode auto).`);
 
         //Récupération du changelog
-        const changelog = await this.getAIChangelog(
-          application.imageInformation.repository,
-          listeNewests.map((tag) => tag.original),
-          application
-        );
+        const changelog = await this.getAIChangelog(application.imageInformation.repository, listeNewests.map((tag) => tag.original), application);
 
         //Envoi de la notification
         await this.notificationService.broadcast(changelog, {
@@ -270,7 +265,7 @@ export class ImageWatcherService {
         //Vérification de la présence de nouvelle versions, ou si les délais sont dépassé
         if (newVersions.length || shouldRemind) {
           //Récupération du changelog
-          const changelog = await this.getAIChangelog(application.imageInformation.repository,newVersions.map((tag) => tag.original),application);
+          const changelog = await this.getAIChangelog(application.imageInformation.repository, newVersions.map((tag) => tag.original), application);
 
           //Définition des paramètres
           const newParams: any = {};
@@ -431,7 +426,8 @@ export class ImageWatcherService {
   private getAnnotations(listeAnnotations: Record<string, string>): ApplicationAnnotation {
     //Enumération
     return {
-      [TypeAnnotation.MODE]: this.parseAnnotation(listeAnnotations, TypeAnnotation.MODE, env.IMAGE_WATCHER_MODE) as TypeMode,
+      [TypeAnnotation.WATCH]: this.parseAnnotation(listeAnnotations, TypeAnnotation.WATCH, env.IMAGE_WATCHER_WATCH) as boolean,
+      [TypeAnnotation.MODE]: this.parseAnnotation(listeAnnotations, TypeAnnotation.MODE, env.IMAGE_WATCHER_MODE),
       [TypeAnnotation.STRATEGY]: this.parseAnnotation(listeAnnotations, TypeAnnotation.STRATEGY, env.IMAGE_WATCHER_STRATEGY) as TypeStrategy,
       [TypeAnnotation.CURRENT_VERSION]: listeAnnotations[TypeAnnotation.CURRENT_VERSION] as string,
       [TypeAnnotation.PREVIOUS_VERSION]: listeAnnotations[TypeAnnotation.PREVIOUS_VERSION] as string,
@@ -447,13 +443,22 @@ export class ImageWatcherService {
   /**
    * Lecture de l'annotation
    */
-  private parseAnnotation(listeAnnotations: Record<string, string>, key: TypeAnnotation, env?: string): any {
+  private parseAnnotation(listeAnnotations: Record<string, string>, key: TypeAnnotation, environnement?: string): any {
+    let rawVal: any;
+
+    //Récupération des méta-données
     const meta = this.mapAnnotationMeta.get(key);
+
     //Recherche sans altérer la casse d’origine
     const directVal = listeAnnotations[key] ?? listeAnnotations[key.toLowerCase()];
 
-    //Définition de la valeur brute
-    const rawVal = directVal ?? env ?? meta?.default;
+    //Définition de la valeur de l'environnement
+    if (env.IMAGE_WATCHER_OVERRIDE === 'true')
+      //Définition de la valeur de l'environnement
+      rawVal = environnement ?? directVal ?? meta?.default;
+    else
+      //Définition de la valeur brute
+      rawVal = directVal ?? environnement ?? meta?.default;
 
     //Vérification de la présence de méta-données
     if (!meta)
