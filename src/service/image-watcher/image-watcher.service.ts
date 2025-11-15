@@ -281,7 +281,7 @@ export class ImageWatcherService {
           //Vérification du succès
           if (success) {
             //Construction de l'url
-            const webhookUrl = `${env.BASE_URL ? env.BASE_URL : `http://localhost:${env.PORT || '3000'}`}/api/image-watcher/upgrade/${application.namespace}/${application.name}?token=${newParams[TypeAnnotation.TOKEN_UPDATE]}&version=${nextVersion}`;
+            const webhookUrl = `${env.BASE_URL ? env.BASE_URL : `http://localhost:${env.PORT || '3000'}`}/api/upgrade/${application.namespace}/${application.name}?token=${newParams[TypeAnnotation.TOKEN_UPDATE]}&version=${nextVersion}`;
 
             //Envoi de la notification
             await this.notificationService.broadcast([...changelog, `\n\n**[Déployer la version ${nextVersion}](${webhookUrl})**`], {
