@@ -35,6 +35,9 @@ export async function startCron() {
       //Log
       logger.error(err, `Erreur lors de l'exécution du cron job 'Image-Watcher`);
     }
+  }, {
+    timezone: env.TZ || 'UTC',
+    name: 'image-watcher-cron'
   });
 
   return cron;
