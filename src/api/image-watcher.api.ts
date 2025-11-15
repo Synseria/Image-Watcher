@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { container } from 'tsyringe';
 import { TypeAnnotation } from '../service/image-watcher/domain/annotation';
 import { ImageWatcherService } from '../service/image-watcher/image-watcher.service';
@@ -12,10 +13,25 @@ const imageWatcherService = container.resolve(ImageWatcherService);
 /** Set pour gérer les verrous de mise à jour */
 const upgradeLocks = new Set<string>();
 
+/** Limiteur de taux pour les mises à jour */
+const upgradeLimiter = rateLimit({
+  windowMs: 5000, // 5 secondes
+  max: 1, // 1 requête max par fenêtre
+  keyGenerator: (req) => {
+    const { namespace, name } = req.params;
+    const { token } = req.query;
+    return `${namespace}:${name}:${token}`;
+  },
+  handler: (req, res) => {
+    // Réponse en cas de dépassement du taux
+    res.status(429).json({ error: 'Veuillez patienter avant de relancer' });
+  }
+});
+
 /**
  * Déclenchement d'une mise à jours
  */
-router.get('/upgrade/:namespace/:name', async (req, res) => {
+router.get('/upgrade/:namespace/:name', upgradeLimiter, async (req, res) => {
   try {
     //Récupération des paramètres
     const { namespace, name } = req.params;
@@ -81,11 +97,11 @@ router.get('/upgrade/:namespace/:name', async (req, res) => {
     const { token } = req.query;
 
     //Vérification du code erreur
-    if (token && res.statusCode !== 429) {
+    if (token && res.statusCode !== 429)
       //Suppression du lock
       upgradeLocks.delete(`${namespace}:${name}:${token}`);
-    }
   }
 });
 
 export default router;
+
