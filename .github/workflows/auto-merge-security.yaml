@@ -41,7 +41,7 @@ jobs:
       # (v:MAJOR, v:MINOR ou v:PATCH). Si absent, ajoute automatiquement v:PATCH
       # car les correctifs de sécurité sont généralement des changements de patch
       - name: Ajouter le marqueur de version si absent (v:PATCH)
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             // Récupération des informations de la pull request
@@ -88,7 +88,7 @@ jobs:
       # Cette étape poste un commentaire sur la PR pour informer les contributeurs
       # que la fusion automatique a été activée
       - name: Publier un commentaire de confirmation
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             // Création d'un commentaire sur la pull request
