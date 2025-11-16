@@ -229,7 +229,30 @@ jobs:
           tag: ${{ steps.calc.outputs.new_tag }}
 
       # -----------------------------------------------------------------------
-      # Étape 9 : Log si aucun tag créé
+      # Étape 9 : Déclencher le workflow Docker pour construire l'image
+      # -----------------------------------------------------------------------
+      # Déclenche manuellement le workflow ci-cd.yaml qui va construire
+      # et publier l'image Docker avec le nouveau tag
+      - name: Déclencher le build Docker
+        if: steps.calc.outputs.new_tag != ''
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const tag = '${{ steps.calc.outputs.new_tag }}';
+            
+            console.log(`🚀 Déclenchement du workflow CI/CD pour le tag ${tag}`);
+            
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ci-cd.yaml',
+              ref: tag
+            });
+            
+            console.log(`✅ Workflow CI/CD déclenché pour ${tag}`);
+
+      # -----------------------------------------------------------------------
+      # Étape 10 : Log si aucun tag créé
       # -----------------------------------------------------------------------
       # Informe que aucun tag n'a été créé si aucun marqueur n'a été trouvé
       - name: Aucun tag créé
