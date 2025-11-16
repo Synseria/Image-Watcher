@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import imageWatcherController from './image-watcher.api';
+import upgrade from './upgrade.api';
 
 /** Création du router pour ce module */
 const router = Router();
 
-/** Définition des routes pour le module image-watcher */
-router.use('/image-watcher', imageWatcherController);
+/** Définition des routes pour le module upgrader */
+router.use('/upgrade', upgrade);
 
 /** Export du router */
 export default router;

@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Values.namespace | default .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}
+    accessType: "private" 
+  annotations:
+    image-watcher/watch: "true"
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+        accessType: {{ .Values.http.accessType | default "private" }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}-sa
+      containers:
+      - name: {{ .Release.Name }}
+        image: ghcr.io/synseria/image-watcher:{{ .Chart.AppVersion }}
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "300m"
+        ports:
+        - containerPort: {{ .Values.http.port | default 3000 }}
+          name: http
+        env:
+        - name: TZ
+          value: {{ .Values.timezone | quote }}
+        - name: OPENAI_BASE_URL
+          value: {{ .Values.openai.url | quote }}
+        - name: OPENAI_MODEL
+          value: {{ .Values.openai.model | quote }}
+        - name: BASE_URL
+          value: https://{{ .Values.http.ingress.subdomain | default .Release.Name }}.{{ .Values.http.ingress.domain | default "lan" }}
+        - name: TRUSTED_PROXY
+          value: {{ .Values.http.trustedProxy | quote }}
+        - name: PORT
+          value: "{{ .Values.http.port }}"
+        - name: IMAGE_WATCHER_MODE
+          value: {{ .Values.watcher.mode | quote }}
+        - name: IMAGE_WATCHER_STRATEGY
+          value: {{ .Values.watcher.strategy | quote }}
+        - name: IMAGE_WATCHER_OVERRIDE
+          value: {{ .Values.watcher.override | quote }}
+        - name: RUN_ON_BOOT
+          value: {{ .Values.watcher.runOnBoot | quote }}
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-secret
+              key: OPENAI_API_KEY
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-secret
+              key: GITHUB_TOKEN
+        - name: DISCORD_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-secret
+              key: DISCORD_URL
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: {{ .Values.http.port | default 3000 }}
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: {{ .Values.http.port | default 3000 }}
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: {{ .Release.Name }}-secret
+        secret:
+          secretName: {{ .Release.Name }}-secret

@@ -1,0 +1,29 @@
+{{- if and .Values.http.enabled .Values.http.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-ingress
+  namespace: {{ .Values.namespace | default .Release.Namespace }}
+  labels:
+    accessType: {{ .Values.http.ingress.accessType | default "private" }}
+  annotations:
+    {{- if eq (.Values.http.ingress.accessType | default "private") "private" }}
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-private-access@kubernetescrd
+    ingress.accesstype: private
+    {{- else }}
+    ingress.accesstype: public
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.http.ingress.className | default "traefik" }}
+  rules:
+    - host: {{ .Values.http.ingress.subdomain | default .Release.Name }}.{{ .Values.http.ingress.domain | default "lan" }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.http.ingress.serviceName | default .Release.Name }}
+                port:
+                  number: {{ .Values.http.port | default 3000 }}
+{{- end }}

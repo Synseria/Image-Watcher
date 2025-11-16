@@ -1,0 +1,46 @@
+# Configuration de l'application Image Watcher
+namespace: image-watcher
+
+# Configuration du fuseau horaire
+timezone: "Europe/Paris"
+
+# Configuration HTTP et exposition
+http:
+  enabled: true
+  port: 3000
+  serviceName: image-watcher
+  serviceType: ClusterIP
+  accessType: private
+  trustedProxy: "10.42.0.0/16"
+
+  # Configuration de l'Ingress
+  ingress:
+    enabled: true
+    className: traefik
+    subdomain: image-watcher
+    domain: example.com
+    serviceName: image-watcher
+    accessType: private
+
+# Configuration OpenAI
+openai:
+  url: "https://api.openai.com/v1"
+  model: "gpt-4o-mini"
+  apiKey: "key"
+  # La clé API doit être définie dans un secret séparé
+  # apiKey: "" # À définir via le secret
+
+# Configuration GitHub
+github:
+  token: "token"
+
+# Configuration Discord
+discord:
+  url: "https://discord.com/api/webhooks/your-webhook-url"
+
+# Configuration du Watcher
+watcher:
+  mode: "NOTIFICATION"  # Valeurs possibles: AUTO_UPDATE, NOTIFICATION, DISABLED
+  strategy: "MINOR"     # Valeurs possibles: ALL, MAJOR, MINOR, PATCH
+  override: "false"     # Force l'utilisation des valeurs d'environnement au lieu des annotations
+  runOnBoot: "true"     # Exécute le scan au démarrage de l'application

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: Image-Watcher
+description: Déploiement de Image Watcher.
+type: application
+version: 1.0.0
+appVersion: stable

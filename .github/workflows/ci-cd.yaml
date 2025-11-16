@@ -1,100 +1,87 @@
+# ============================================================================
+# Workflow principal CI/CD (Intégration Continue / Déploiement Continu)
+# ============================================================================
+# Ce workflow orchestre l'ensemble du pipeline CI/CD en trois phases :
+# 1. Compilation de l'application TypeScript
+# 2. Exécution des tests et vérifications de qualité du code
+# 3. Construction et publication de l'image Docker (uniquement pour certaines branches/tags)
+#
+# Déclenchement :
+# - Sur chaque pull request (pour validation)
+# - Sur chaque push de tag (pour release)
+# ============================================================================
+
 name: CI/CD
 
+# Déclencheurs du workflow
 on:
   push:
-    branches: ['**']
-    tags: ['v*']
-  pull_request:
+    tags: ['v*']  # S'exécute sur tous les tags commençant par 'v' (ex: v1.0.0)
+  pull_request:   # S'exécute sur toutes les pull requests
 
+# Gestion de la concurrence pour éviter les conflits
+# Si plusieurs exécutions du même workflow sont déclenchées sur la même référence,
+# annule les exécutions précédentes encore en cours
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: true  # Annule les exécutions précédentes en cours
 
+# Variables d'environnement globales utilisées par les jobs
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  REGISTRY: ghcr.io                    # Registry Docker GitHub Container Registry
+  IMAGE_NAME: ${{ github.repository }} # Nom de l'image au format owner/repo
 
 jobs:
-  # 1️⃣ Build de l'application TypeScript
+  # ==========================================================================
+  # JOB 1 : Compilation de l'application TypeScript
+  # ==========================================================================
+  # Appelle le workflow réutilisable build.yaml qui compile le code TypeScript
+  # et génère les fichiers JavaScript dans le dossier dist/
   build:
-    name: 1️⃣ Construction de l'application
+    name: Compilation
     uses: ./.github/workflows/build.yaml
 
-  # 2️⃣ Tests + Lint + Code Coverage
+  # ==========================================================================
+  # JOB 2 : Tests et Couverture de Code
+  # ==========================================================================
+  # Appelle le workflow réutilisable test.yaml qui exécute :
+  # - Les tests unitaires
+  # - Le linter (vérification du style de code)
+  # - La génération du rapport de couverture de code
+  # 
+  # Dépendance : Attend que le job 'build' soit terminé avec succès
   test:
-    name: 2️⃣ Tests & Coverage
+    name: Tests et Couverture
     uses: ./.github/workflows/test.yaml
-    needs: build
+    needs: build  # Ne s'exécute que si le build réussit
     permissions:
-      contents: write
+      contents: write  # Nécessaire pour publier les rapports sur GitHub Pages
 
-  # 3️⃣ Auto PR vers dev (seulement pour feature/fix/hotfix/refactor)
-  auto-pr:
-    name: 3️⃣ Création automatique de la PR
-    runs-on: ubuntu-latest
-    needs: test
-    if: |
-      github.event_name == 'push' &&
-      (startsWith(github.ref, 'refs/heads/feature/') ||
-       startsWith(github.ref, 'refs/heads/fix/') ||
-       startsWith(github.ref, 'refs/heads/hotfix/') ||
-       startsWith(github.ref, 'refs/heads/refactor/'))
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Check if PR already exists
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          pr_number=$(gh pr list --head ${{ github.ref_name }} --base dev --json number --jq '.[0].number // empty')
-          if [ -n "$pr_number" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "pr_number=$pr_number" >> $GITHUB_OUTPUT
-            echo "✅ PR #$pr_number already exists"
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "🔍 No existing PR found"
-          fi
-
-      - name: Create Pull Request to dev
-        if: steps.check.outputs.exists == 'false'
-        uses: repo-sync/pull-request@v2
-        with:
-          source_branch: ${{ github.ref_name }}
-          destination_branch: dev
-          pr_title: '[${{ github.ref_name }}] Auto PR to dev'
-          pr_body: |
-            ## 🤖 Automated Pull Request
-
-            This PR was automatically created from branch `${{ github.ref_name }}` to `dev`.
-
-            **Branch:** `${{ github.ref_name }}`
-            **Target:** `dev`
-            **Author:** @${{ github.actor }}
-            **CI Status:** ✅ Build & Tests passed
-
-            Please review the changes and merge when ready.
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          pr_draft: false
-          pr_allow_empty: false
-
-  # 4️⃣ Build & Push Docker (seulement pour dev/master/tags)
+  # ==========================================================================
+  # JOB 3 : Construction et Publication Docker
+  # ==========================================================================
+  # Appelle le workflow réutilisable docker.yaml qui construit l'image Docker
+  # multi-architecture (amd64/arm64) et la publie sur GitHub Container Registry
+  #
+  # Conditions d'exécution :
+  # - Uniquement sur un 'push' (pas sur pull_request)
+  # - Uniquement pour les branches master, dev ou les tags de version
+  #
+  # Dépendance : Attend que le job 'test' soit terminé avec succès
   docker:
-    name: 4️⃣ Construction et Push Docker
+    name: Déploiement
     uses: ./.github/workflows/docker.yaml
-    needs: test
+    needs: test  # Ne s'exécute que si les tests passent
+    
+    # Condition : Seulement pour push sur master, dev ou tags v*
     if: |
       github.event_name == 'push' &&
       (github.ref == 'refs/heads/master' || 
        github.ref == 'refs/heads/dev' ||
        startsWith(github.ref, 'refs/tags/v'))
+    
     permissions:
-      contents: read
-      packages: write
-    secrets: inherit
+      contents: read   # Nécessaire pour lire le code source
+      packages: write  # Nécessaire pour publier sur GitHub Container Registry
+    
+    secrets: inherit  # Hérite des secrets du workflow appelant

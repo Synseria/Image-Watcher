@@ -144,6 +144,6 @@ export class ReleaseService extends ServiceProvider {
    */
   private interpolateUrl(template: string, data: Record<string, string>): string {
     //Remplacement des paramètres
-    return template.replace(/\$\{(.*?)\}/g, (_, key) => data[key] ?? '');
+    return template.replace(/\{(.*?)\}/g, (_, key) => data[key] ?? '');
   }
 }

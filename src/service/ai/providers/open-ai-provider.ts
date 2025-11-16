@@ -23,9 +23,9 @@ export class OpenAIProvider implements IAIProvider {
   /** Constructeur */
   constructor() {
     //Récupération des variables d'environnement
-    this.apiUrl = process.env.OPEN_AI_URL || 'https://api.openai.com/v1';
-    this.apiKey = process.env.OPEN_AI_KEY;
-    this.defaultModel = process.env.OPEN_AI_MODEL;
+    this.apiUrl = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+    this.apiKey = process.env.OPENAI_API_KEY;
+    this.defaultModel = process.env.OPENAI_MODEL;
   }
 
   /**

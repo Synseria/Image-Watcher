@@ -1,30 +1,74 @@
-name: Build
+# ============================================================================
+# Workflow de compilation de l'application
+# ============================================================================
+# Ce workflow réutilisable compile l'application TypeScript et valide que
+# les fichiers de sortie sont correctement générés. Il est appelé par d'autres
+# workflows (comme ci-cd.yaml) pour centraliser la logique de build.
+# ============================================================================
 
+name: Compilation
+
+# Ce workflow est réutilisable et peut être appelé par d'autres workflows
 on:
   workflow_call:
 
 jobs:
   build:
-    name: Build & Validate
+    name: Compilation et Validation
     runs-on: ubuntu-latest
+    
     steps:
+      # -----------------------------------------------------------------------
+      # Étape 1 : Récupération du code source
+      # -----------------------------------------------------------------------
+      # Clone le repository pour accéder au code source
       - uses: actions/checkout@v5
+      
+      # -----------------------------------------------------------------------
+      # Étape 2 : Configuration de l'environnement Node.js
+      # -----------------------------------------------------------------------
+      # Installe Node.js version 24 avec mise en cache npm pour accélérer
+      # les installations de dépendances lors des exécutions suivantes
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
-          cache: 'npm'
+          cache: 'npm'  # Active la mise en cache du dossier node_modules
+      
+      # -----------------------------------------------------------------------
+      # Étape 3 : Installation des dépendances
+      # -----------------------------------------------------------------------
+      # Utilise 'npm ci' au lieu de 'npm install' pour une installation
+      # reproductible et plus rapide basée sur package-lock.json
       - run: npm ci
+      
+      # -----------------------------------------------------------------------
+      # Étape 4 : Compilation de l'application TypeScript
+      # -----------------------------------------------------------------------
+      # Exécute le script de build défini dans package.json qui compile
+      # le code TypeScript en JavaScript dans le dossier dist/
       - run: npm run build
-      # Vérification du build (si dist vide => erreur)
-      - name: Verify build output
+      
+      # -----------------------------------------------------------------------
+      # Étape 5 : Vérification de la sortie de compilation
+      # -----------------------------------------------------------------------
+      # Valide que le dossier dist/ existe et contient des fichiers
+      # Si le dossier est vide ou inexistant, le workflow échoue
+      - name: Vérifier la sortie de compilation
         run: |
           if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then
-            echo "❌ Build output is empty."
+            echo "❌ La sortie de compilation est vide."
             exit 1
           fi
-          echo "✅ Build succeeded and dist/ is not empty."
+          echo "✅ Compilation réussie et dist/ n'est pas vide."
+      
+      # -----------------------------------------------------------------------
+      # Étape 6 : Sauvegarde des fichiers compilés
+      # -----------------------------------------------------------------------
+      # Upload le dossier dist/ comme artifact pour permettre aux autres jobs
+      # ou workflows de réutiliser les fichiers compilés sans recompiler
+      # Rétention de 7 jours pour économiser l'espace de stockage
       - uses: actions/upload-artifact@v5
         with:
           name: build-output
           path: dist/
-          retention-days: 7
+          retention-days: 7  # Les artifacts sont supprimés après 7 jours

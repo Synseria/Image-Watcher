@@ -1,61 +1,120 @@
+# ============================================================================
+# Workflow de Tests et Qualité du Code
+# ============================================================================
+# Ce workflow réutilisable exécute les tests unitaires, le linter et génère
+# un rapport de couverture de code. Il est appelé par d'autres workflows
+# (comme ci-cd.yaml) pour centraliser la logique de test.
+#
+# Fonctionnalités :
+# - Linting du code (vérification des règles de style)
+# - Tests unitaires avec couverture de code
+# - Génération d'un rapport HTML de couverture
+# - Publication du rapport sur GitHub Pages (branche master uniquement)
+# ============================================================================
+
 name: Tests
 
+# Ce workflow est réutilisable et peut être appelé par d'autres workflows
 on:
   workflow_call:
 
 jobs:
   test:
-    name: Tests & Lint
+    name: Tests et Lint
     runs-on: ubuntu-latest
+    
     steps:
+      # -----------------------------------------------------------------------
+      # Étape 1 : Récupération du code source
+      # -----------------------------------------------------------------------
       - uses: actions/checkout@v5
+      
+      # -----------------------------------------------------------------------
+      # Étape 2 : Configuration de l'environnement Node.js
+      # -----------------------------------------------------------------------
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: 'npm'
+      
+      # -----------------------------------------------------------------------
+      # Étape 3 : Installation des dépendances
+      # -----------------------------------------------------------------------
       - run: npm ci
 
-      - name: Create .env.test if missing
+      # -----------------------------------------------------------------------
+      # Étape 4 : Création du fichier .env.test si nécessaire
+      # -----------------------------------------------------------------------
+      # Certains tests peuvent nécessiter des variables d'environnement
+      # Crée un fichier .env.test vide s'il n'existe pas déjà
+      - name: Créer .env.test si manquant
         run: |
           if [ ! -f .env.test ]; then
-            echo "Creating .env.test with default values"
+            echo "Création de .env.test avec les valeurs par défaut"
             touch .env.test
           fi
 
+      # -----------------------------------------------------------------------
+      # Étape 5 : Vérification du style de code (Linting)
+      # -----------------------------------------------------------------------
+      # Exécute ESLint pour vérifier que le code respecte les règles de style
+      # et les bonnes pratiques définies dans eslint.config.js
       - name: Lint
         run: npm run lint
 
-      - name: Tests with coverage
+      # -----------------------------------------------------------------------
+      # Étape 6 : Exécution des tests avec couverture de code
+      # -----------------------------------------------------------------------
+      # Exécute les tests unitaires avec Vitest et génère un rapport de
+      # couverture de code qui indique quelles lignes sont testées
+      - name: Tests avec couverture de code
         run: npm run coverage
 
-      - name: Coverage Summary
+      # -----------------------------------------------------------------------
+      # Étape 7 : Génération du résumé de couverture
+      # -----------------------------------------------------------------------
+      # Crée un résumé visible dans l'interface GitHub Actions
+      # S'exécute toujours, même si les tests échouent (if: always())
+      - name: Résumé de couverture
         if: always()
         run: |
-          echo "## 📊 Code Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Rapport de Couverture de Code" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f coverage/coverage-final.json ]; then
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            echo "Coverage reports generated successfully" >> $GITHUB_STEP_SUMMARY
-            echo "Check the detailed HTML report in artifacts below" >> $GITHUB_STEP_SUMMARY
+            echo "Rapports de couverture générés avec succès" >> $GITHUB_STEP_SUMMARY
+            echo "Consultez le rapport HTML détaillé dans les artifacts ci-dessous" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ Coverage data not generated" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ Données de couverture non générées" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📦 **Download full HTML report** from artifacts below to view detailed line-by-line coverage" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **Téléchargez le rapport HTML complet** depuis les artifacts ci-dessous pour voir la couverture ligne par ligne" >> $GITHUB_STEP_SUMMARY
 
-      - name: Upload coverage artifact
+      # -----------------------------------------------------------------------
+      # Étape 8 : Sauvegarde du rapport de couverture
+      # -----------------------------------------------------------------------
+      # Upload le dossier coverage/ comme artifact pour permettre de télécharger
+      # et consulter le rapport HTML détaillé
+      # S'exécute toujours, même si les tests échouent
+      - name: Upload de l'artifact de couverture
         uses: actions/upload-artifact@v5
         if: always()
         with:
           name: coverage-report
           path: coverage/
-          retention-days: 30
+          retention-days: 30  # Conservé pendant 30 jours
 
-      - name: Deploy coverage to GitHub Pages
+      # -----------------------------------------------------------------------
+      # Étape 9 : Publication sur GitHub Pages (master uniquement)
+      # -----------------------------------------------------------------------
+      # Publie le rapport de couverture sur GitHub Pages pour un accès facile
+      # Uniquement pour la branche master et si toutes les étapes précédentes
+      # ont réussi
+      - name: Déployer la couverture sur GitHub Pages
         if: github.ref == 'refs/heads/master' && success()
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./coverage
-          destination_dir: coverage
+          destination_dir: coverage  # Publié sous /coverage sur GitHub Pages

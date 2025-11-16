@@ -1,52 +1,81 @@
-# Configuration Dependabot pour Image-Watcher
+## ============================================================================
+## Configuration Dependabot pour Image-Watcher
+## ============================================================================
+## Objectif : automatiser la création de pull requests de mise à jour pour :
+##  - Dépendances npm (bibliothèques applicatives et outils de build)
+##  - Actions GitHub (versions des workflows CI/CD)
+##  - Images / bases Docker (directives FROM dans le Dockerfile)
+##
+## Stratégie générale :
+##  - Fréquence quotidienne (12:00 UTC) pour minimiser l'écart de sécurité
+##  - Limitation du nombre de PR ouvertes pour éviter la surcharge
+##  - Groupement uniquement des mises à jour minor + patch (sécurisées)
+##  - Mises à jour major laissées isolées pour revue manuelle
+##  - Labeling systématique pour filtrage / recherche
+##  - Assignation automatique du mainteneur principal
+##
+## Remarque : Les horaires sont en UTC. 12:00 UTC = 13h/14h Europe (selon DST).
+## ============================================================================
 version: 2
 
 updates:
-  # Dépendances npm (package.json)
+  # --------------------------------------------------------------------------
+  # 1. Écosystème npm (analyse package.json + lockfile)
+  # --------------------------------------------------------------------------
   - package-ecosystem: 'npm'
-    directory: '/'
+    directory: '/'              # Racine du projet (package.json situé ici)
     schedule:
-      interval: 'weekly' # Vérifie chaque semaine
-      day: 'monday' # Le lundi
-      time: '09:00' # À 9h
-    open-pull-requests-limit: 10 # Max 10 PR ouvertes en même temps
+      interval: 'daily'         # Fréquence de scan : une fois par jour
+      time: '12:00'             # Heure de génération des PR (UTC)
+    open-pull-requests-limit: 10 # Limite pour éviter d'inonder le flux PR
 
-    #Regrouper les mises à jour mineures
+    # Groupement contrôlé : on regroupe uniquement MINOR + PATCH.
+    # Avantages : moins de bruit, fusion plus rapide.
+    # MAJOR exclus pour permettre analyse des breaking changes.
     groups:
-      dependencies:
+      minor-patch-deps:
         patterns:
-          - '*'
+          - '*'                 # Cible toutes les dépendances
         update-types:
           - 'minor'
           - 'patch'
 
-    # Labels automatiques
+    # Labels appliqués automatiquement aux PR pour tri et automatisations.
     labels:
       - 'dependencies'
       - 'npm'
 
-    # Assignation automatique (optionnel)
+    # Assigne automatiquement le responsable principal pour revue.
     assignees:
       - 'Synseria'
 
-  # GitHub Actions (workflows)
+  # --------------------------------------------------------------------------
+  # 2. Écosystème GitHub Actions (versions des actions utilisées dans /.github)
+  # --------------------------------------------------------------------------
   - package-ecosystem: 'github-actions'
-    directory: '/'
+    directory: '/'              # Analyse tous les workflows YAML
     schedule:
-      interval: 'weekly'
-      day: 'monday'
-      time: '09:00'
+      interval: 'daily'
+      time: '12:00'
     labels:
       - 'dependencies'
       - 'github-actions'
 
-  # Docker (si vous avez un Dockerfile avec FROM)
+  # --------------------------------------------------------------------------
+  # 3. Écosystème Docker (analyse des images référencées dans Dockerfile)
+  # --------------------------------------------------------------------------
   - package-ecosystem: 'docker'
-    directory: '/'
+    directory: '/'              # Dockerfile à la racine
     schedule:
-      interval: 'weekly'
-      day: 'monday'
-      time: '09:00'
+      interval: 'daily'
+      time: '12:00'
     labels:
       - 'dependencies'
       - 'docker'
+
+## ============================================================================
+## Bonnes pratiques associées :
+##  - Examiner les PR MAJOR avec changelog officiel.
+##  - Relancer manuellement si un scan critique est nécessaire avant 12:00 UTC.
+##  - Coupler avec un workflow d'auto-merge sélectif (patch/minor uniquement).
+## ============================================================================

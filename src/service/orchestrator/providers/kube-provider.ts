@@ -1,9 +1,9 @@
 import { AppsV1Api, CoreV1Api, KubeConfig, V1Deployment, V1StatefulSet } from '@kubernetes/client-node';
 import { injectable, singleton } from 'tsyringe';
-import { toISOStringWithTZ } from '../../../utils/date-utils';
 import { ApplicationAnnotation } from '../../image-watcher/domain/annotation';
 import { Application } from '../domain/application';
 import { IOrchestratorProvider, OrchestratorUnavailableError } from '../domain/i-orchestrator-provider';
+import { DateTime } from 'luxon';
 
 /**
  * Provider Kubernetes
@@ -206,7 +206,7 @@ export class KubeProvider implements IOrchestratorProvider {
         normalizedParams[k] = v.toString();
       else if (v instanceof Date)
         //Conversion en ISO avec timezone
-        normalizedParams[k] = toISOStringWithTZ(v);
+        normalizedParams[k] = DateTime.fromJSDate(v).toISO({ includeOffset: true });
       else
         //Valeur brute
         normalizedParams[k] = v;

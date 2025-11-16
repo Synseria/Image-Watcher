@@ -91,25 +91,25 @@ describe(`ReleaseService (${TEST_MODE} tests)`, () => {
 
     describe('interpolateUrl()', () => {
       it('interpole les paramètres simples', () => {
-        const result = service['interpolateUrl']('https://example.com/${repository}/${tag}', { repository: 'myrepo', tag: 'v1.0.0' });
+        const result = service['interpolateUrl']('https://example.com/{repository}/{tag}', { repository: 'myrepo', tag: 'v1.0.0' });
 
         expect(result).toBe('https://example.com/myrepo/v1.0.0');
       });
 
       it('interpole plusieurs occurrences du même paramètre', () => {
-        const result = service['interpolateUrl']('https://example.com/${tag}/release-${tag}', { tag: 'v1.0.0' });
+        const result = service['interpolateUrl']('https://example.com/{tag}/release-{tag}', { tag: 'v1.0.0' });
 
         expect(result).toBe('https://example.com/v1.0.0/release-v1.0.0');
       });
 
       it('laisse les paramètres non fournis vides', () => {
-        const result = service['interpolateUrl']('https://example.com/${repository}/${missing}', { repository: 'myrepo' });
+        const result = service['interpolateUrl']('https://example.com/{repository}/{missing}', { repository: 'myrepo' });
 
         expect(result).toBe('https://example.com/myrepo/');
       });
 
       it('gère les paramètres avec des caractères spéciaux', () => {
-        const result = service['interpolateUrl']('https://example.com/${org}/${repo}', { org: 'my-org', repo: 'my.repo' });
+        const result = service['interpolateUrl']('https://example.com/{org}/{repo}', { org: 'my-org', repo: 'my.repo' });
 
         expect(result).toBe('https://example.com/my-org/my.repo');
       });
@@ -146,7 +146,7 @@ describe(`ReleaseService (${TEST_MODE} tests)`, () => {
         });
 
         await service.getRelease('owner/repo', 'v1.0.0', {
-          [TypeAnnotation.RELEASE_URL]: 'https://example.com/${repository}/${tag}'
+          [TypeAnnotation.RELEASE_URL]: 'https://example.com/{repository}/{tag}'
         });
 
         expect(mockScrapper!.getRelease).toHaveBeenCalledWith(

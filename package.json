@@ -10,7 +10,8 @@
     "coverage": "ENV_FILE=.env.test vitest run --config vitest.config.ts --coverage",
     "format": "prettier --write .",
     "lint": "eslint . --ext .ts",
-    "build": "tsc && tsc-alias"
+    "build": "tsc && tsc-alias",
+    "test-changelog": "tsx tests/standalone/debug-changelog.ts"
   },
   "author": "Synseria",
   "license": "Apache-2.0",
@@ -19,6 +20,8 @@
     "@kubernetes/client-node": "1.4.0",
     "dotenv": "17.2.3",
     "express": "5.1.0",
+    "express-rate-limit": "^8.2.1",
+    "luxon": "^3.7.2",
     "node-cron": "4.2.1",
     "pino": "10.1.0",
     "pino-http": "11.0.0",
@@ -29,13 +32,14 @@
   },
   "devDependencies": {
     "@types/express": "5.0.5",
+    "@types/luxon": "^3.7.1",
     "@types/node": "24.10.1",
     "@types/node-cron": "3.0.11",
     "@types/supertest": "6.0.3",
     "@typescript-eslint/eslint-plugin": "8.46.4",
     "@typescript-eslint/parser": "8.46.4",
-    "@vitest/coverage-v8": "4.0.8",
-    "@vitest/ui": "4.0.8",
+    "@vitest/coverage-v8": "4.0.9",
+    "@vitest/ui": "4.0.9",
     "eslint": "9.39.1",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.4",
@@ -45,7 +49,7 @@
     "tsc-alias": "1.8.16",
     "tsx": "4.20.6",
     "typescript": "5.9.3",
-    "vitest": "4.0.8"
+    "vitest": "4.0.9"
   },
   "overrides": {
     "pino-opentelemetry-transport": {

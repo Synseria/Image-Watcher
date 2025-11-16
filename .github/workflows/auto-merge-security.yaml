@@ -1,0 +1,100 @@
+# ============================================================================
+# Workflow de fusion automatique pour les mises à jour de sécurité
+# ============================================================================
+# Ce workflow gère automatiquement les pull requests liées à la sécurité en:
+# 1. Ajoutant un marqueur de version PATCH au titre si absent
+# 2. Activant la fusion automatique avec la méthode squash
+# 3. Postant un commentaire de confirmation
+# ============================================================================
+
+name: Fusion Automatique des Mises à Jour de Sécurité
+
+# Déclencheurs du workflow
+on:
+  pull_request:
+    # Le workflow s'exécute lors de ces événements sur une pull request
+    types: 
+      - opened           # Lorsqu'une PR est nouvellement créée
+      - labeled          # Lorsqu'un label est ajouté à la PR
+      - ready_for_review # Lorsqu'une PR en brouillon est marquée comme prête
+      - synchronize      # Lorsque de nouveaux commits sont poussés sur la PR
+
+jobs:
+  auto-merge-security:
+    name: Activer la fusion automatique pour les PR de sécurité
+    runs-on: ubuntu-latest
+    
+    # Condition d'exécution : le workflow ne s'exécute que si la PR contient le label 'security'
+    # Cela permet de cibler uniquement les mises à jour liées à la sécurité
+    if: contains(toJson(github.event.pull_request.labels), 'security')
+    
+    # Permissions nécessaires pour ce job
+    permissions:
+      contents: write        # Nécessaire pour modifier le contenu du repository
+      pull-requests: write   # Nécessaire pour modifier la PR et ajouter des commentaires
+    
+    steps:
+      # -----------------------------------------------------------------------
+      # Étape 1 : Ajout automatique du marqueur de version
+      # -----------------------------------------------------------------------
+      # Cette étape vérifie si le titre de la PR contient déjà un marqueur de version
+      # (v:MAJOR, v:MINOR ou v:PATCH). Si absent, ajoute automatiquement v:PATCH
+      # car les correctifs de sécurité sont généralement des changements de patch
+      - name: Ajouter le marqueur de version si absent (v:PATCH)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Récupération des informations de la pull request
+            const pr = github.event.pull_request;
+            const title = pr.title;
+            const marker = 'v:PATCH'; // Choix : PATCH pour les correctifs de sécurité
+            
+            // Expression régulière pour détecter les marqueurs de version existants
+            const hasMarker = /(v:MAJOR|v:MINOR|v:PATCH)/i.test(title);
+            
+            if (!hasMarker) {
+              // Aucun marqueur trouvé : on l'ajoute à la fin du titre
+              const newTitle = title + ' ' + marker;
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                title: newTitle
+              });
+              core.info(`Marqueur '${marker}' ajouté au titre de la PR.`);
+            } else {
+              // Marqueur déjà présent : aucune action requise
+              core.info('Marqueur déjà présent, pas de modification.');
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      # -----------------------------------------------------------------------
+      # Étape 2 : Activation de la fusion automatique
+      # -----------------------------------------------------------------------
+      # Cette étape active la fusion automatique de la PR avec la méthode 'squash'
+      # La fusion sera effectuée automatiquement dès que toutes les conditions sont remplies
+      # (checks passent, approbations requises obtenues, etc.)
+      - name: Activer la fusion automatique (squash)
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          merge-method: squash  # Combine tous les commits en un seul lors de la fusion
+          pull-request-number: ${{ github.event.pull_request.number }}
+
+      # -----------------------------------------------------------------------
+      # Étape 3 : Commentaire de confirmation
+      # -----------------------------------------------------------------------
+      # Cette étape poste un commentaire sur la PR pour informer les contributeurs
+      # que la fusion automatique a été activée
+      - name: Publier un commentaire de confirmation
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Création d'un commentaire sur la pull request
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Fusion automatique de sécurité activée (méthode squash). La PR sera fusionnée automatiquement une fois toutes les vérifications passées.'
+            })

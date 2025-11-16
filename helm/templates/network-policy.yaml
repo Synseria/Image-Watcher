@@ -1,0 +1,59 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Values.namespace | default .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: traefik
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: traefik
+      ports:
+      - protocol: TCP
+        port: {{ .Values.http.port | default 3000 }}
+  egress:
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+      ports:
+      - protocol: UDP
+        port: 53
+      - protocol: TCP
+        port: 53
+    - to:
+      - ipBlock:
+          cidr: 0.0.0.0/0
+      ports:
+      - protocol: TCP
+        port: 80
+      - protocol: TCP
+        port: 443
+    - to:
+      - ipBlock:
+          cidr: "192.168.1.0/24" # IP du master K3s (où tourne kube-apiserver)
+      ports:
+        - port: 6443 # Port de l’API Server sur K3s
+          protocol: TCP
+    - to:
+      - podSelector:
+          matchLabels:
+            network-access: llm  # Autoriser l'accès aux pods avec ce label
+      ports:
+      - protocol: TCP
+        port: 80
+      - protocol: TCP
+        port: 443
