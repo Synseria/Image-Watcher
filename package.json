@@ -10,7 +10,8 @@
     "coverage": "ENV_FILE=.env.test vitest run --config vitest.config.ts --coverage",
     "format": "prettier --write .",
     "lint": "eslint . --ext .ts",
-    "build": "tsc && tsc-alias"
+    "build": "tsc && tsc-alias",
+    "test-changelog": "tsx tests/standalone/debug-changelog.ts"
   },
   "author": "Synseria",
   "license": "Apache-2.0",
