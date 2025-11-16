@@ -33,7 +33,9 @@ jobs:
     runs-on: ubuntu-latest
     
     permissions:
-      contents: write  # Nécessaire pour créer des tags et des releases
+      contents: write        # Nécessaire pour créer des tags et des releases
+      pull-requests: write   # Nécessaire pour commenter sur les PRs
+      actions: write         # Nécessaire pour déclencher d'autres workflows
     
     steps:
       # -----------------------------------------------------------------------
