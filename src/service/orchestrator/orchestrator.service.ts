@@ -79,7 +79,7 @@ export class OrchestratorService extends ServiceProvider {
   /**
    * Liste des applications
    */
-  async listeApplications(): Promise<Application[]> {
+  async listeApplications(silent: boolean = false): Promise<Application[]> {
     //Récupération du provider
     const provider = this.getProvider();
 
@@ -105,14 +105,18 @@ export class OrchestratorService extends ServiceProvider {
         };
       });
 
-      //Log
-      logger.info(`La liste des applications a été récupérée avec succès (${enriched.length} application(s)).`);
+      //Log (sauf si silent)
+      if (!silent)
+        //Log
+        logger.info(`La liste des applications a été récupérée avec succès (${enriched.length} application(s)).`);
 
       //Retour des applications
       return enriched;
     } catch (err: any) {
-      //Log
-      logger.error(err?.detail, `Une erreur est survenue lors de la récupération de la liste des applications : ${err.message}`);
+      //Log (sauf si silent)
+      if (!silent) {
+        logger.error(err?.detail, `Une erreur est survenue lors de la récupération de la liste des applications : ${err.message}`);
+      }
 
       //Retourne une liste vide
       return [];
