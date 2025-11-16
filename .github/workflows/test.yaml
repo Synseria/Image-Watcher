@@ -80,15 +80,85 @@ jobs:
         run: |
           echo "## 📊 Rapport de Couverture de Code" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          
           if [ -f coverage/coverage-final.json ]; then
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            echo "Rapports de couverture générés avec succès" >> $GITHUB_STEP_SUMMARY
-            echo "Consultez le rapport HTML détaillé dans les artifacts ci-dessous" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            # Extraction des métriques globales
+            node -e "
+              const fs = require('fs');
+              const coverage = JSON.parse(fs.readFileSync('coverage/coverage-final.json', 'utf8'));
+              
+              let totalStatements = 0, coveredStatements = 0;
+              let totalBranches = 0, coveredBranches = 0;
+              let totalFunctions = 0, coveredFunctions = 0;
+              let totalLines = 0, coveredLines = 0;
+              
+              const fileStats = [];
+              
+              for (const [file, data] of Object.entries(coverage)) {
+                const fileName = file.replace(process.cwd() + '/', '');
+                const s = data.s || {}, b = data.b || {}, f = data.f || {};
+                
+                const stmtTotal = Object.keys(s).length;
+                const stmtCovered = Object.values(s).filter(v => v > 0).length;
+                const branchTotal = Object.values(b).flat().length;
+                const branchCovered = Object.values(b).flat().filter(v => v > 0).length;
+                const funcTotal = Object.keys(f).length;
+                const funcCovered = Object.values(f).filter(v => v > 0).length;
+                const lineTotal = Object.keys(data.statementMap || {}).length;
+                const lineCovered = Object.values(s).filter(v => v > 0).length;
+                
+                totalStatements += stmtTotal;
+                coveredStatements += stmtCovered;
+                totalBranches += branchTotal;
+                coveredBranches += branchCovered;
+                totalFunctions += funcTotal;
+                coveredFunctions += funcCovered;
+                totalLines += lineTotal;
+                coveredLines += lineCovered;
+                
+                const stmtPct = stmtTotal > 0 ? (stmtCovered / stmtTotal * 100).toFixed(2) : '100.00';
+                const branchPct = branchTotal > 0 ? (branchCovered / branchTotal * 100).toFixed(2) : '100.00';
+                const funcPct = funcTotal > 0 ? (funcCovered / funcTotal * 100).toFixed(2) : '100.00';
+                const linePct = lineTotal > 0 ? (lineCovered / lineTotal * 100).toFixed(2) : '100.00';
+                
+                fileStats.push({ fileName, stmtPct, branchPct, funcPct, linePct });
+              }
+              
+              const globalStmtPct = totalStatements > 0 ? (coveredStatements / totalStatements * 100).toFixed(2) : '100.00';
+              const globalBranchPct = totalBranches > 0 ? (coveredBranches / totalBranches * 100).toFixed(2) : '100.00';
+              const globalFuncPct = totalFunctions > 0 ? (coveredFunctions / totalFunctions * 100).toFixed(2) : '100.00';
+              const globalLinePct = totalLines > 0 ? (coveredLines / totalLines * 100).toFixed(2) : '100.00';
+              
+              console.log('### 📈 Couverture Globale');
+              console.log('');
+              console.log('| Métrique | Couverture |');
+              console.log('|----------|------------|');
+              console.log(\`| 📝 Statements | \${globalStmtPct}% (\${coveredStatements}/\${totalStatements}) |\`);
+              console.log(\`| 🌿 Branches | \${globalBranchPct}% (\${coveredBranches}/\${totalBranches}) |\`);
+              console.log(\`| ⚡ Functions | \${globalFuncPct}% (\${coveredFunctions}/\${totalFunctions}) |\`);
+              console.log(\`| 📄 Lines | \${globalLinePct}% (\${coveredLines}/\${totalLines}) |\`);
+              console.log('');
+              console.log('### 📁 Détails par Fichier');
+              console.log('');
+              console.log('| Fichier | Statements | Branches | Functions | Lines |');
+              console.log('|---------|------------|----------|-----------|-------|');
+              
+              fileStats
+                .sort((a, b) => parseFloat(a.stmtPct) - parseFloat(b.stmtPct))
+                .forEach(stat => {
+                  const stmtEmoji = parseFloat(stat.stmtPct) >= 80 ? '✅' : parseFloat(stat.stmtPct) >= 50 ? '⚠️' : '❌';
+                  console.log(\`| \${stat.fileName} | \${stmtEmoji} \${stat.stmtPct}% | \${stat.branchPct}% | \${stat.funcPct}% | \${stat.linePct}% |\`);
+                });
+            " >> $GITHUB_STEP_SUMMARY
+            
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "---" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ Données de couverture non générées" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Données de couverture non générées**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           fi
-          echo "" >> $GITHUB_STEP_SUMMARY
+          
           echo "📦 **Téléchargez le rapport HTML complet** depuis les artifacts ci-dessous pour voir la couverture ligne par ligne" >> $GITHUB_STEP_SUMMARY
 
       # -----------------------------------------------------------------------

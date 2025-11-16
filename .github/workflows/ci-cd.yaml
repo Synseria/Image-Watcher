@@ -17,7 +17,12 @@ name: CI/CD
 on:
   push:
     tags: ['v*']  # S'exécute sur tous les tags commençant par 'v' (ex: v1.0.0)
+    branches:
+      - master  # Branche principale
+      - dev     # Branche de développement
+      - '**'    # Toutes les autres branches (pattern glob)
   pull_request:   # S'exécute sur toutes les pull requests
+  workflow_dispatch: # Permet le déclenchement manuel (par auto-version-tag)
 
 # Gestion de la concurrence pour éviter les conflits
 # Si plusieurs exécutions du même workflow sont déclenchées sur la même référence,
@@ -73,11 +78,13 @@ jobs:
     uses: ./.github/workflows/docker.yaml
     needs: test  # Ne s'exécute que si les tests passent
     
-    # Condition : Seulement pour push sur master, dev ou tags v*
+    # Condition : Pour push sur master/dev/tags OU pour workflow_dispatch sur un tag
     if: |
-      github.event_name == 'push' &&
-      (github.ref == 'refs/heads/master' || 
-       github.ref == 'refs/heads/dev' ||
+      (github.event_name == 'push' &&
+       (github.ref == 'refs/heads/master' || 
+        github.ref == 'refs/heads/dev' ||
+        startsWith(github.ref, 'refs/tags/v'))) ||
+      (github.event_name == 'workflow_dispatch' &&
        startsWith(github.ref, 'refs/tags/v'))
     
     permissions:
