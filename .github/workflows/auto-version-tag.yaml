@@ -1,0 +1,237 @@
+# ============================================================================
+# Workflow de Versioning Automatique
+# ============================================================================
+# Ce workflow automatise la création de tags de version selon la convention
+# Semantic Versioning (semver) basé sur des marqueurs dans les commits.
+#
+# Fonctionnement :
+# 1. Détecte les marqueurs v:MAJOR, v:MINOR ou v:PATCH dans les commits
+# 2. Calcule automatiquement la nouvelle version
+# 3. Crée et pousse un tag Git
+# 4. Crée une release GitHub
+# 5. Commente sur la PR avec le nouveau tag
+#
+# Marqueurs à utiliser dans les titres de commit ou PR :
+# - v:MAJOR : changements incompatibles (1.2.3 → 2.0.0)
+# - v:MINOR : nouvelles fonctionnalités (1.2.3 → 1.3.0)
+# - v:PATCH : corrections de bugs (1.2.3 → 1.2.4)
+# ============================================================================
+
+name: Versioning Automatique
+
+# Déclenchement : lorsqu'une PR est fusionnée sur la branche master
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - master
+
+jobs:
+  tag-version:
+    # Condition : Ne s'exécute que si la PR a été fusionnée (pas fermée sans fusion)
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write  # Nécessaire pour créer des tags et des releases
+    
+    steps:
+      # -----------------------------------------------------------------------
+      # Étape 1 : Récupération du code source complet
+      # -----------------------------------------------------------------------
+      - name: Récupération du code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Récupère tout l'historique (nécessaire pour les tags)
+
+      # -----------------------------------------------------------------------
+      # Étape 2 : Récupération des tags
+      # -----------------------------------------------------------------------
+      # Force la récupération de tous les tags depuis le dépôt distant
+      - name: Récupération des tags
+        run: git fetch --tags --force
+
+      # -----------------------------------------------------------------------
+      # Étape 3 : Détermination du dernier tag existant
+      # -----------------------------------------------------------------------
+      # Cherche le dernier tag de version. Si aucun tag n'existe, utilise
+      # v0.0.0 comme point de départ
+      - name: Déterminer le dernier tag
+        id: last
+        run: |
+          set -e
+          # git describe --tags --abbrev=0 retourne le tag le plus récent
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          
+          if [ -z "$LAST_TAG" ]; then
+            LAST_TAG="v0.0.0"  # Point de départ si aucun tag n'existe
+          fi
+          
+          echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
+          echo "Dernier tag trouvé : $LAST_TAG"
+
+      # -----------------------------------------------------------------------
+      # Étape 4 : Scanner les commits pour détecter les marqueurs
+      # -----------------------------------------------------------------------
+      # Parcourt tous les commits entre le dernier tag et HEAD pour trouver
+      # les marqueurs v:MAJOR, v:MINOR ou v:PATCH
+      # Priorité : MAJOR > MINOR > PATCH (si plusieurs marqueurs, prend le plus élevé)
+      - name: Scanner les commits pour les marqueurs de version
+        id: scan
+        run: |
+          set -e
+          LAST_TAG='${{ steps.last.outputs.last_tag }}'
+          
+          # Récupère tous les messages de commit (titre + corps) depuis le dernier tag
+          COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=%B)
+          
+          echo "Commits entre $LAST_TAG et HEAD :"
+          echo "$COMMITS"
+          
+          MODE=""  # MAJOR / MINOR / PATCH
+          
+          # Détection des marqueurs avec priorité (MAJOR > MINOR > PATCH)
+          if echo "$COMMITS" | grep -qi 'v:MAJOR'; then 
+            MODE="MAJOR"
+          fi
+          
+          if [ -z "$MODE" ] && echo "$COMMITS" | grep -qi 'v:MINOR'; then 
+            MODE="MINOR"
+          fi
+          
+          if [ -z "$MODE" ] && echo "$COMMITS" | grep -qi 'v:PATCH'; then 
+            MODE="PATCH"
+          fi
+          
+          echo "mode=$MODE" >> $GITHUB_OUTPUT
+          
+          if [ -z "$MODE" ]; then
+            echo "⚠️  Aucun marqueur v:MAJOR/MINOR/PATCH détecté. Pas de nouveau tag créé."
+          else
+            echo "✅ Marqueur détecté : $MODE"
+          fi
+
+      # -----------------------------------------------------------------------
+      # Étape 5 : Calcul de la nouvelle version
+      # -----------------------------------------------------------------------
+      # À partir du dernier tag et du mode détecté, calcule la nouvelle version
+      # en respectant les règles semver :
+      # - MAJOR : incrémente MAJOR, reset MINOR et PATCH à 0
+      # - MINOR : incrémente MINOR, reset PATCH à 0
+      # - PATCH : incrémente PATCH uniquement
+      - name: Calcul de la nouvelle version
+        id: calc
+        if: steps.scan.outputs.mode != ''
+        run: |
+          set -e
+          LAST_TAG='${{ steps.last.outputs.last_tag }}'
+          MODE='${{ steps.scan.outputs.mode }}'
+          
+          # Extraction du préfixe éventuel (ex: 'v' dans v1.0.0)
+          PREFIX=""
+          BASE="$LAST_TAG"
+          
+          if echo "$BASE" | grep -qE '^[^0-9]'; then
+            PREFIX=$(echo "$BASE" | sed -E 's/^([^0-9]+).*$/\1/')
+            BASE=$(echo "$BASE" | sed -E "s/^$PREFIX//")
+          fi
+          
+          # Extraction des composants de version
+          MAJOR=$(echo "$BASE" | cut -d'.' -f1)
+          MINOR=$(echo "$BASE" | cut -d'.' -f2)
+          PATCH=$(echo "$BASE" | cut -d'.' -f3 | sed 's/[^0-9].*$//')
+          
+          # Calcul de la nouvelle version selon le mode
+          case "$MODE" in
+            MAJOR)
+              MAJOR=$((MAJOR+1))
+              MINOR=0
+              PATCH=0
+              ;;
+            MINOR)
+              MINOR=$((MINOR+1))
+              PATCH=0
+              ;;
+            PATCH)
+              PATCH=$((PATCH+1))
+              ;;
+          esac
+          
+          # Reconstitution du tag avec le préfixe
+          NEW_TAG="${PREFIX}${MAJOR}.${MINOR}.${PATCH}"
+          
+          echo "✅ Nouvelle version calculée : $NEW_TAG (mode $MODE depuis $LAST_TAG)"
+          echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+
+      # -----------------------------------------------------------------------
+      # Étape 6 : Création et publication du tag
+      # -----------------------------------------------------------------------
+      # Crée un tag annoté avec la nouvelle version et le pousse sur GitHub
+      - name: Créer et pousser le tag
+        if: steps.calc.outputs.new_tag != ''
+        run: |
+          set -e
+          NEW_TAG='${{ steps.calc.outputs.new_tag }}'
+          
+          # Configuration de l'identité Git pour créer le tag
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          
+          # Création d'un tag annoté (recommandé pour les releases)
+          git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
+          
+          # Publication du tag sur GitHub
+          git push origin "$NEW_TAG"
+          
+          echo "✅ Tag $NEW_TAG créé et poussé avec succès."
+
+      # -----------------------------------------------------------------------
+      # Étape 7 : Création de la release GitHub
+      # -----------------------------------------------------------------------
+      # Crée automatiquement une release GitHub associée au nouveau tag
+      # avec des notes de release générées automatiquement
+      - name: Créer la release GitHub
+        if: steps.calc.outputs.new_tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.calc.outputs.new_tag }}
+          name: Release ${{ steps.calc.outputs.new_tag }}
+          body: |
+            🚀 Release générée automatiquement
+            
+            **Type de mise à jour :** ${{ steps.scan.outputs.mode }}
+            **Version précédente :** ${{ steps.last.outputs.last_tag }}
+            **Nouvelle version :** ${{ steps.calc.outputs.new_tag }}
+            
+            Cette release a été créée automatiquement suite à la fusion d'une PR contenant le marqueur v:${{ steps.scan.outputs.mode }}.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # -----------------------------------------------------------------------
+      # Étape 8 : Commentaire sur la PR avec le nouveau tag
+      # -----------------------------------------------------------------------
+      # Poste un commentaire sur la PR fusionnée pour informer du tag créé
+      - name: Commenter la PR avec le nouveau tag
+        if: steps.calc.outputs.new_tag != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = core.getInput('tag');
+            const mode = '${{ steps.scan.outputs.mode }}';
+            
+            await github.rest.issues.createComment({
+              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🏷️ **Tag automatique créé : \`${tag}\`**\n\n✅ Détection du marqueur : **v:${mode}**\n\nUne release GitHub a été créée automatiquement.`
+            });
+        env:
+          tag: ${{ steps.calc.outputs.new_tag }}
+
+      # -----------------------------------------------------------------------
+      # Étape 9 : Log si aucun tag créé
+      # -----------------------------------------------------------------------
+      # Informe que aucun tag n'a été créé si aucun marqueur n'a été trouvé
+      - name: Aucun tag créé
+        if: steps.scan.outputs.mode == ''
+        run: echo "ℹ️  Aucun tag généré (aucun marqueur de version détecté dans les commits)."

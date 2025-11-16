@@ -1,25 +1,61 @@
-name: Dependabot Auto-merge
+# ============================================================================
+# Workflow de Fusion Automatique pour Dependabot
+# ============================================================================
+# Ce workflow gère automatiquement les pull requests créées par Dependabot
+# pour les mises à jour de dépendances.
+#
+# Stratégie :
+# - Auto-merge automatique pour les mises à jour PATCH et MINOR (sûres)
+# - Commentaire de warning pour les mises à jour MAJOR (review manuelle requise)
+#
+# Exemple :
+# - 1.2.3 → 1.2.4 (PATCH) : ✅ Fusion automatique
+# - 1.2.3 → 1.3.0 (MINOR) : ✅ Fusion automatique
+# - 1.2.3 → 2.0.0 (MAJOR) : ⚠️  Review manuelle requise (breaking changes)
+# ============================================================================
 
+name: Fusion Automatique Dependabot
+
+# Déclenchement : sur toutes les pull requests ciblant la branche master
 on:
   pull_request:
-    branches: [dev]
+    branches: [master]
+
+# Permissions nécessaires pour modifier les PRs
 permissions:
-  contents: write
-  pull-requests: write
+  contents: write        # Pour fusionner la PR
+  pull-requests: write   # Pour modifier et commenter la PR
+
 jobs:
   auto-merge:
-    name: Auto-merge Dependabot
+    name: Fusion Automatique Dependabot
     runs-on: ubuntu-latest
-    # Seulement pour les PR de Dependabot
+    
+    # Condition : Ne s'exécute que pour les PRs créées par Dependabot
     if: github.actor == 'dependabot[bot]'
+    
     steps:
-      - name: Dependabot metadata
+      # -----------------------------------------------------------------------
+      # Étape 1 : Récupération des métadonnées Dependabot
+      # -----------------------------------------------------------------------
+      # Extrait les informations sur la mise à jour (type, version, etc.)
+      # Utilise l'action officielle Dependabot pour parser les métadonnées
+      - name: Métadonnées Dependabot
         id: metadata
         uses: dependabot/fetch-metadata@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      # Auto-merge les patch et minor (pas les major)
-      - name: Enable auto-merge
+      
+      # -----------------------------------------------------------------------
+      # Étape 2 : Activation de la fusion automatique (PATCH et MINOR)
+      # -----------------------------------------------------------------------
+      # Active l'auto-merge pour les mises à jour sûres qui ne contiennent
+      # généralement pas de breaking changes :
+      # - version-update:semver-patch : correctifs de bugs (1.0.0 → 1.0.1)
+      # - version-update:semver-minor : nouvelles fonctionnalités (1.0.0 → 1.1.0)
+      #
+      # Méthode squash : combine tous les commits de la PR en un seul
+      - name: Activer la fusion automatique
         if: |
           steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
           steps.metadata.outputs.update-type == 'version-update:semver-minor'
@@ -28,8 +64,14 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # Commenter pour les major (review manuelle)
-      - name: Comment on major update
+      
+      # -----------------------------------------------------------------------
+      # Étape 3 : Commentaire d'avertissement pour les MAJOR
+      # -----------------------------------------------------------------------
+      # Pour les mises à jour majeures (1.x.x → 2.0.0), ne pas fusionner
+      # automatiquement car elles peuvent contenir des breaking changes.
+      # Poste un commentaire pour alerter l'équipe qu'une review est nécessaire
+      - name: Commentaire sur mise à jour majeure
         if: steps.metadata.outputs.update-type == 'version-update:semver-major'
         uses: actions/github-script@v8
         with:
@@ -38,5 +80,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '⚠️ **Mise à jour majeure détectée !**\n\nCette PR nécessite une review manuelle car c\'est une version majeure qui peut contenir des breaking changes.'
+              body: '⚠️ **Mise à jour majeure détectée !**\n\nCette PR nécessite une review manuelle car c\'est une version majeure qui peut contenir des breaking changes (modifications incompatibles avec la version précédente).\n\n🔍 Veuillez vérifier le changelog et tester minutieusement avant de fusionner.'
             })
