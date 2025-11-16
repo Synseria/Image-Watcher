@@ -74,7 +74,7 @@ async function readyz(req: express.Request, res: express.Response) {
     const orchestrator = container.resolve(OrchestratorService);
 
     //Appel léger pour vérifier l'accès au provider (liste éventuellement vide)
-    await orchestrator.listeApplications();
+    await orchestrator.listeApplications(true);
 
     //Succès
     res.json({ status: 'ready', timestamp: new Date().toISOString() });
