@@ -40,7 +40,7 @@ jobs:
       # Étape 1 : Récupération du code source complet
       # -----------------------------------------------------------------------
       - name: Récupération du code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0  # Récupère tout l'historique (nécessaire pour les tags)
 
