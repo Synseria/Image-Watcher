@@ -9,8 +9,14 @@ import { OrchestratorService } from './service/orchestrator/orchestrator.service
 /** Création du logger */
 const logger = createLogger(import.meta);
 
-/** Création du middleware de log HTTP */
-const httpLogger = pinoHttp({ logger })
+/** Création du middleware de log HTTP (ignore /healthz et /readyz) */
+const httpLogger = pinoHttp({
+  // Cast pour compatibilité de typage avec pino-http
+  logger: logger as any,
+  autoLogging: {
+    ignore: (req) => req.url === '/healthz' || req.url === '/readyz'
+  }
+});
 
 /** Définition du port */
 const PORT = env.PORT || 3000;

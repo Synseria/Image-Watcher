@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import pino from 'pino';
 import { env } from 'process';
 
@@ -19,7 +20,7 @@ const ENV = env.NODE_ENV || 'development';
 //Configuration du logger Pino
 const logger = pino({
   level: LOG_LEVEL,
-  timestamp: pino.stdTimeFunctions.isoTime,
+  timestamp: () => `,"time":"${DateTime.now().toISO({ includeOffset: true })}"`,
   transport: {
     targets: [
       LOG_FORMAT === 'pretty' && {
