@@ -213,7 +213,7 @@ jobs:
       # Poste un commentaire sur la PR fusionnée pour informer du tag créé
       - name: Commenter la PR avec le nouveau tag
         if: steps.calc.outputs.new_tag != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const tag = core.getInput('tag');
