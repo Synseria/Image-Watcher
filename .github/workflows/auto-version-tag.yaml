@@ -33,7 +33,9 @@ jobs:
     runs-on: ubuntu-latest
     
     permissions:
-      contents: write  # Nécessaire pour créer des tags et des releases
+      contents: write        # Nécessaire pour créer des tags et des releases
+      pull-requests: write   # Nécessaire pour commenter sur les PRs
+      actions: write         # Nécessaire pour déclencher d'autres workflows
     
     steps:
       # -----------------------------------------------------------------------
@@ -164,7 +166,32 @@ jobs:
           echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
 
       # -----------------------------------------------------------------------
-      # Étape 6 : Création et publication du tag
+      # Étape 6 : Validation du format semver
+      # -----------------------------------------------------------------------
+      # Vérifie que le tag calculé respecte bien le format semver
+      # (sécurité supplémentaire pour éviter de créer des tags invalides)
+      - name: Valider le format semver
+        if: steps.calc.outputs.new_tag != ''
+        run: |
+          set -e
+          NEW_TAG='${{ steps.calc.outputs.new_tag }}'
+          
+          # Expression régulière pour valider le format semver
+          if [[ ! "$NEW_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "❌ ERREUR : Le tag calculé '$NEW_TAG' n'est pas au format semver valide !"
+            echo ""
+            echo "✅ Exemples valides :"
+            echo "   - v1.0.0"
+            echo "   - v2.3.4"
+            echo "   - v1.0.0-beta.1"
+            echo "   - v1.2.3-rc.2"
+            exit 1
+          fi
+          
+          echo "✅ Le tag '$NEW_TAG' est un semver valide"
+
+      # -----------------------------------------------------------------------
+      # Étape 7 : Création et publication du tag
       # -----------------------------------------------------------------------
       # Crée un tag annoté avec la nouvelle version et le pousse sur GitHub
       - name: Créer et pousser le tag
@@ -186,29 +213,30 @@ jobs:
           echo "✅ Tag $NEW_TAG créé et poussé avec succès."
 
       # -----------------------------------------------------------------------
-      # Étape 7 : Création de la release GitHub
+      # Étape 8 : Création de la release GitHub
       # -----------------------------------------------------------------------
       # Crée automatiquement une release GitHub associée au nouveau tag
-      # avec des notes de release générées automatiquement
+      # avec des notes de release générées automatiquement par l'IA GitHub
       - name: Créer la release GitHub
         if: steps.calc.outputs.new_tag != ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.calc.outputs.new_tag }}
           name: Release ${{ steps.calc.outputs.new_tag }}
+          generate_release_notes: true  # Génération automatique des notes par l'IA GitHub
           body: |
-            🚀 Release générée automatiquement
+            🚀 **Release générée automatiquement**
             
             **Type de mise à jour :** ${{ steps.scan.outputs.mode }}
             **Version précédente :** ${{ steps.last.outputs.last_tag }}
             **Nouvelle version :** ${{ steps.calc.outputs.new_tag }}
             
-            Cette release a été créée automatiquement suite à la fusion d'une PR contenant le marqueur v:${{ steps.scan.outputs.mode }}.
+            ---
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # -----------------------------------------------------------------------
-      # Étape 8 : Commentaire sur la PR avec le nouveau tag
+      # Étape 9 : Commentaire sur la PR avec le nouveau tag
       # -----------------------------------------------------------------------
       # Poste un commentaire sur la PR fusionnée pour informer du tag créé
       - name: Commenter la PR avec le nouveau tag
@@ -229,7 +257,7 @@ jobs:
           tag: ${{ steps.calc.outputs.new_tag }}
 
       # -----------------------------------------------------------------------
-      # Étape 9 : Déclencher le workflow Docker pour construire l'image
+      # Étape 10 : Déclencher le workflow Docker pour construire l'image
       # -----------------------------------------------------------------------
       # Déclenche manuellement le workflow ci-cd.yaml qui va construire
       # et publier l'image Docker avec le nouveau tag
@@ -252,7 +280,7 @@ jobs:
             console.log(`✅ Workflow CI/CD déclenché pour ${tag}`);
 
       # -----------------------------------------------------------------------
-      # Étape 10 : Log si aucun tag créé
+      # Étape 11 : Log si aucun tag créé
       # -----------------------------------------------------------------------
       # Informe que aucun tag n'a été créé si aucun marqueur n'a été trouvé
       - name: Aucun tag créé
