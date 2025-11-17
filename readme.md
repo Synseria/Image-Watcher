@@ -36,6 +36,7 @@ metadata:
 | `IMAGE_WATCHER_MODE`      | NOTIFICATION              | Mode global : AUTO_UPDATE, NOTIFICATION, DISABLED |
 | `IMAGE_WATCHER_STRATEGY`  | MINOR                     | Stratégie de mise à jour |
 | `IMAGE_WATCHER_OVERRIDE`  | false                     | Forcer les valeurs d'env au lieu des annotations |
+| `IMAGE_WATCHER_SCHEDULE`  | "0 */3 * * *"             | Cron d'exécution du watcher (désactive le mode planifié si vide) |
 | `RUN_ON_BOOT`             | true                      | Démarrer le scan au boot |
 | `PORT`                    | 3000                      | Port HTTP exposé |
 | `BASE_URL`                | (auto)                    | URL de base pour les notifications |

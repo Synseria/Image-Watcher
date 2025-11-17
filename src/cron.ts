@@ -14,8 +14,8 @@ const imageWatcherService = container.resolve(ImageWatcherService);
  * Lancement du serveur
  */
 export async function startCron() {
-  //Définition du cron (Par défaut, tout les jours à midi)
-  const cronJob = env.IMAGE_WATCHER_SCHEDULE || '0 12 * * *';
+  //Définition du cron (Par défaut, tout les jours, toute les 3heures)
+  const cronJob = env.IMAGE_WATCHER_SCHEDULE || '0 */3 * * *';
 
   //Log
   logger.info(`Démarrage du cron ${cronJob}...`);
