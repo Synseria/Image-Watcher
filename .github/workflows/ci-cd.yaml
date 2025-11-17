@@ -2,20 +2,27 @@
 # Workflow principal CI/CD (Intégration Continue / Déploiement Continu)
 # ============================================================================
 # Ce workflow orchestre l'ensemble du pipeline CI/CD :
-# 1. Compilation de l'application TypeScript
-# 2. Exécution des tests et vérifications de qualité du code
-# 3. Versioning automatique (détection marqueurs, création tag/release)
-# 4. Construction et publication de l'image Docker
+# 
+# PHASE 1 - Validation (TOUTES les branches) :
+# 1. Build + Lint : Compilation et vérification du code
+# 2. Tests + Coverage : Exécution des tests et génération du rapport
 #
-# Déclenchement :
-# - Sur chaque pull request (pour validation)
-# - Sur chaque push vers master/dev (pour déploiement)
-# - Sur chaque push de tag (pour release)
+# PHASE 2 - Vérification de branche :
+# Continue uniquement si branche = master OU dev
 #
-# Versioning automatique :
-# - Détecte les marqueurs v:MAJOR, v:MINOR ou v:PATCH dans les commits
-# - Crée automatiquement un tag semver et une release GitHub
-# - Déclenche le build Docker avec le nouveau tag
+# PHASE 3 - Déploiement (selon branche) :
+# 
+# Branche DEV :
+# - Build Docker avec tags : dev
+#
+# Branche MASTER :
+# - Build Docker TOUJOURS avec tags : latest, master
+# - SI marqueur v:MAJOR/MINOR/PATCH détecté dans les commits :
+#   → Calcul nouvelle version semver
+#   → Création tag Git vx.x.x
+#   → Création release GitHub
+#   → Ajout tags vx.x.x, vx.x, vx, stable sur LA MÊME IMAGE
+#
 # ============================================================================
 
 name: CI/CD
@@ -23,150 +30,259 @@ name: CI/CD
 # Déclencheurs du workflow
 on:
   push:
-    tags: ['v*']  # S'exécute sur tous les tags commençant par 'v' (ex: v1.0.0)
     branches:
       - master  # Branche principale
       - dev     # Branche de développement
-      - '**'    # Toutes les autres branches (pattern glob)
   pull_request:
-    types: [opened, synchronize, reopened, closed]  # Inclut 'closed' pour détecter les merges
+    branches:
+      - master  # PR vers master
+      - dev     # PR vers dev
 
 # Gestion de la concurrence pour éviter les conflits
-# Si plusieurs exécutions du même workflow sont déclenchées sur la même référence,
-# annule les exécutions précédentes encore en cours
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true  # Annule les exécutions précédentes en cours
+  cancel-in-progress: true
 
-# Variables d'environnement globales utilisées par les jobs
+# Variables d'environnement globales
 env:
-  REGISTRY: ghcr.io                    # Registry Docker GitHub Container Registry
-  IMAGE_NAME: ${{ github.repository }} # Nom de l'image au format owner/repo
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   # ==========================================================================
-  # JOB 1 : Compilation de l'application TypeScript
+  # PHASE 1 : VALIDATION (toutes les branches)
   # ==========================================================================
-  # Appelle le workflow réutilisable build.yaml qui compile le code TypeScript
-  # et génère les fichiers JavaScript dans le dossier dist/
+  
+  # --------------------------------------------------------------------------
+  # JOB 1 : Build + Lint
+  # --------------------------------------------------------------------------
   build:
-    name: Compilation
+    name: Build et Lint
     uses: ./.github/workflows/build.yaml
 
-  # ==========================================================================
-  # JOB 2 : Tests et Couverture de Code
-  # ==========================================================================
-  # Appelle le workflow réutilisable test.yaml qui exécute :
-  # - Les tests unitaires
-  # - Le linter (vérification du style de code)
-  # - La génération du rapport de couverture de code
-  # 
-  # Dépendance : Attend que le job 'build' soit terminé avec succès
+  # --------------------------------------------------------------------------
+  # JOB 2 : Tests + Coverage
+  # --------------------------------------------------------------------------
   test:
-    name: Tests et Couverture
+    name: Tests et Coverage
     uses: ./.github/workflows/test.yaml
-    needs: build  # Ne s'exécute que si le build réussit
+    needs: build
     permissions:
-      contents: write  # Nécessaire pour publier les rapports sur GitHub Pages
+      contents: write
 
   # ==========================================================================
-  # JOB 3 : Versioning Automatique (uniquement si PR merged sur master)
+  # PHASE 2 : VÉRIFICATION DE BRANCHE
   # ==========================================================================
-  # Détecte les marqueurs v:MAJOR/MINOR/PATCH dans les commits et crée
-  # automatiquement un tag semver et une release GitHub
-  versioning:
-    name: Versioning Automatique
+  
+  # --------------------------------------------------------------------------
+  # JOB 3 : Check si on doit continuer (master ou dev uniquement)
+  # --------------------------------------------------------------------------
+  check-branch:
+    name: Vérification de branche
     runs-on: ubuntu-latest
     needs: test
-    # Condition : Seulement si PR merged sur master ET marqueur détecté
-    if: |
-      github.event_name == 'pull_request' && 
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.base.ref == 'master'
-    
-    permissions:
-      contents: write        # Nécessaire pour créer des tags et des releases
-      pull-requests: write   # Nécessaire pour commenter sur les PRs
-    
     outputs:
-      new_tag: ${{ steps.calc.outputs.new_tag }}
-      version_mode: ${{ steps.scan.outputs.mode }}
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+      branch_name: ${{ steps.check.outputs.branch_name }}
     
     steps:
-      # Récupération du code avec historique complet
+      - name: Vérifier la branche
+        id: check
+        run: |
+          # Récupération du nom de branche selon le contexte
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BRANCH="${{ github.event.pull_request.head.ref }}"
+          else
+            BRANCH="${{ github.ref_name }}"
+          fi
+          
+          echo "branch_name=$BRANCH" >> $GITHUB_OUTPUT
+          
+          # Vérification si master ou dev
+          if [[ "$BRANCH" == "master" || "$BRANCH" == "dev" ]]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "✅ Branche $BRANCH : Déploiement autorisé"
+          else
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+            echo "⏸️  Branche $BRANCH : Validation uniquement (pas de déploiement)"
+          fi
+
+  # ==========================================================================
+  # PHASE 3a : DÉPLOIEMENT DEV
+  # ==========================================================================
+  
+  # --------------------------------------------------------------------------
+  # JOB 4a : Build Docker pour DEV (tags: dev)
+  # --------------------------------------------------------------------------
+  deploy-dev:
+    name: Déploiement DEV
+    runs-on: ubuntu-latest
+    needs: check-branch
+    if: |
+      needs.check-branch.outputs.should_deploy == 'true' &&
+      needs.check-branch.outputs.branch_name == 'dev' &&
+      github.event_name == 'push'
+    
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v5
+
+      - name: Configuration de QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Configuration de Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Connexion à GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extraction des métadonnées
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=dev
+            type=sha,prefix=dev-
+
+      - name: Build et Push Docker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ==========================================================================
+  # PHASE 3b : DÉPLOIEMENT MASTER
+  # ==========================================================================
+  
+  # --------------------------------------------------------------------------
+  # JOB 4b : Build Docker pour MASTER (tags: latest, master)
+  # --------------------------------------------------------------------------
+  deploy-master:
+    name: Déploiement MASTER
+    runs-on: ubuntu-latest
+    needs: check-branch
+    if: |
+      needs.check-branch.outputs.should_deploy == 'true' &&
+      needs.check-branch.outputs.branch_name == 'master' &&
+      github.event_name == 'push'
+    
+    permissions:
+      contents: write
+      packages: write
+    
+    outputs:
+      image_digest: ${{ steps.build.outputs.digest }}
+      has_version_marker: ${{ steps.scan.outputs.has_marker }}
+      new_version: ${{ steps.calc.outputs.new_tag }}
+    
+    steps:
       - name: Récupération du code
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      # Récupération des tags
-      - name: Récupération des tags
+      - name: Configuration de QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Configuration de Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Connexion à GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extraction des métadonnées
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=master
+            type=sha,prefix=master-
+
+      - name: Build et Push Docker
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # -----------------------------------------------------------------------
+      # Détection des marqueurs de version dans les commits
+      # -----------------------------------------------------------------------
+      - name: Récupérer les tags Git
         run: git fetch --tags --force
 
-      # Détermination du dernier tag
       - name: Déterminer le dernier tag
         id: last
         run: |
-          set -e
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
-          
-          if [ -z "$LAST_TAG" ]; then
-            LAST_TAG="v0.0.0"
-          fi
-          
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
-          echo "Dernier tag trouvé : $LAST_TAG"
+          echo "📌 Dernier tag : $LAST_TAG"
 
-      # Scanner les commits pour les marqueurs
-      - name: Scanner les commits pour les marqueurs de version
+      - name: Scanner les commits pour marqueurs
         id: scan
         run: |
-          set -e
           LAST_TAG='${{ steps.last.outputs.last_tag }}'
-          
           COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=%B)
           
-          echo "Commits entre $LAST_TAG et HEAD :"
+          echo "📝 Commits depuis $LAST_TAG :"
           echo "$COMMITS"
+          echo ""
           
           MODE=""
-          
           if echo "$COMMITS" | grep -qi 'v:MAJOR'; then 
             MODE="MAJOR"
-          fi
-          
-          if [ -z "$MODE" ] && echo "$COMMITS" | grep -qi 'v:MINOR'; then 
+          elif echo "$COMMITS" | grep -qi 'v:MINOR'; then 
             MODE="MINOR"
-          fi
-          
-          if [ -z "$MODE" ] && echo "$COMMITS" | grep -qi 'v:PATCH'; then 
+          elif echo "$COMMITS" | grep -qi 'v:PATCH'; then 
             MODE="PATCH"
           fi
           
-          echo "mode=$MODE" >> $GITHUB_OUTPUT
-          
           if [ -z "$MODE" ]; then
-            echo "⚠️  Aucun marqueur v:MAJOR/MINOR/PATCH détecté. Pas de nouveau tag créé."
+            echo "has_marker=false" >> $GITHUB_OUTPUT
+            echo "⏸️  Aucun marqueur détecté"
           else
-            echo "✅ Marqueur détecté : $MODE"
+            echo "has_marker=true" >> $GITHUB_OUTPUT
+            echo "mode=$MODE" >> $GITHUB_OUTPUT
+            echo "✅ Marqueur détecté : v:$MODE"
           fi
 
-      # Calcul de la nouvelle version
-      - name: Calcul de la nouvelle version
+      - name: Calculer la nouvelle version
         id: calc
-        if: steps.scan.outputs.mode != ''
+        if: steps.scan.outputs.has_marker == 'true'
         run: |
-          set -e
           LAST_TAG='${{ steps.last.outputs.last_tag }}'
           MODE='${{ steps.scan.outputs.mode }}'
           
-          PREFIX=""
-          BASE="$LAST_TAG"
-          
-          if echo "$BASE" | grep -qE '^[^0-9]'; then
-            PREFIX=$(echo "$BASE" | sed -E 's/^([^0-9]+).*$/\1/')
-            BASE=$(echo "$BASE" | sed -E "s/^$PREFIX//")
-          fi
+          # Extraction du préfixe (v) et de la version
+          PREFIX=$(echo "$LAST_TAG" | sed -E 's/^([^0-9]+).*$/\1/')
+          BASE=$(echo "$LAST_TAG" | sed -E "s/^$PREFIX//")
           
           MAJOR=$(echo "$BASE" | cut -d'.' -f1)
           MINOR=$(echo "$BASE" | cut -d'.' -f2)
@@ -189,35 +305,31 @@ jobs:
           
           NEW_TAG="${PREFIX}${MAJOR}.${MINOR}.${PATCH}"
           
-          echo "✅ Nouvelle version calculée : $NEW_TAG (mode $MODE depuis $LAST_TAG)"
           echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "🏷️  Nouvelle version : $NEW_TAG"
 
-      # Validation du format semver
-      - name: Valider le format semver
-        if: steps.calc.outputs.new_tag != ''
-        run: |
-          set -e
-          NEW_TAG='${{ steps.calc.outputs.new_tag }}'
-          
-          if [[ ! "$NEW_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
-            echo "❌ ERREUR : Le tag calculé '$NEW_TAG' n'est pas au format semver valide !"
-            echo ""
-            echo "✅ Exemples valides :"
-            echo "   - v1.0.0"
-            echo "   - v2.3.4"
-            echo "   - v1.0.0-beta.1"
-            echo "   - v1.2.3-rc.2"
-            exit 1
-          fi
-          
-          echo "✅ Le tag '$NEW_TAG' est un semver valide"
+  # --------------------------------------------------------------------------
+  # JOB 5 : Création Release et Tags Semver
+  # --------------------------------------------------------------------------
+  create-release:
+    name: Création Release
+    runs-on: ubuntu-latest
+    needs: deploy-master
+    if: needs.deploy-master.outputs.has_version_marker == 'true'
+    
+    permissions:
+      contents: write
+      packages: write
+    
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-      # Création et publication du tag
       - name: Créer et pousser le tag
-        if: steps.calc.outputs.new_tag != ''
         run: |
-          set -e
-          NEW_TAG='${{ steps.calc.outputs.new_tag }}'
+          NEW_TAG='${{ needs.deploy-master.outputs.new_version }}'
           
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
@@ -225,74 +337,66 @@ jobs:
           git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
           git push origin "$NEW_TAG"
           
-          echo "✅ Tag $NEW_TAG créé et poussé avec succès."
+          echo "✅ Tag $NEW_TAG créé et poussé"
 
-      # Création de la release GitHub
       - name: Créer la release GitHub
-        if: steps.calc.outputs.new_tag != ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.calc.outputs.new_tag }}
-          name: Release ${{ steps.calc.outputs.new_tag }}
+          tag_name: ${{ needs.deploy-master.outputs.new_version }}
+          name: Release ${{ needs.deploy-master.outputs.new_version }}
           generate_release_notes: true
           body: |
-            🚀 **Release générée automatiquement**
+            🚀 **Release automatique**
             
-            **Type de mise à jour :** ${{ steps.scan.outputs.mode }}
-            **Version précédente :** ${{ steps.last.outputs.last_tag }}
-            **Nouvelle version :** ${{ steps.calc.outputs.new_tag }}
+            **Version :** ${{ needs.deploy-master.outputs.new_version }}
+            **Image Docker :** `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.deploy-master.outputs.new_version }}`
             
-            ---
+            Cette release est associée à l'image Docker avec les tags suivants :
+            - `latest`
+            - `master`
+            - `${{ needs.deploy-master.outputs.new_version }}`
+            - `stable`
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Commentaire sur la PR
-      - name: Commenter la PR avec le nouveau tag
-        if: steps.calc.outputs.new_tag != ''
-        uses: actions/github-script@v8
+      # -----------------------------------------------------------------------
+      # Ajout des tags semver sur LA MÊME IMAGE
+      # -----------------------------------------------------------------------
+      - name: Connexion à GHCR
+        uses: docker/login-action@v3
         with:
-          script: |
-            const tag = '${{ steps.calc.outputs.new_tag }}';
-            const mode = '${{ steps.scan.outputs.mode }}';
-            
-            await github.rest.issues.createComment({
-              issue_number: context.payload.pull_request.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `🏷️ **Tag automatique créé : \`${tag}\`**\n\n✅ Détection du marqueur : **v:${mode}**\n\nUne release GitHub a été créée automatiquement.\n\n🐳 Le build Docker sera déclenché automatiquement avec ce tag.`
-            });
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-  # ==========================================================================
-  # JOB 4 : Construction et Publication Docker
-  # ==========================================================================
-  # Appelle le workflow réutilisable docker.yaml qui construit l'image Docker
-  # multi-architecture (amd64/arm64) et la publie sur GitHub Container Registry
-  #
-  # Conditions d'exécution :
-  # - Push sur master/dev/tags
-  # - Après création de tag par le job versioning
-  #
-  # Dépendance : Attend que le job 'test' soit terminé avec succès
-  # ET attend le job 'versioning' (qui peut être skipped)
-  docker:
-    name: Déploiement
-    uses: ./.github/workflows/docker.yaml
-    needs: [test, versioning]
-    # S'exécute toujours si needs.versioning est skipped
-    if: |
-      always() &&
-      needs.test.result == 'success' &&
-      (needs.versioning.result == 'success' || needs.versioning.result == 'skipped') &&
-      (
-        (github.event_name == 'push' &&
-         (github.ref == 'refs/heads/master' || 
-          github.ref == 'refs/heads/dev' ||
-          startsWith(github.ref, 'refs/tags/v'))) ||
-        needs.versioning.outputs.new_tag != ''
-      )
-    
-    permissions:
-      contents: read   # Nécessaire pour lire le code source
-      packages: write  # Nécessaire pour publier sur GitHub Container Registry
-    
-    secrets: inherit  # Hérite des secrets du workflow appelant
+      - name: Ajouter les tags semver à l'image existante
+        run: |
+          NEW_TAG='${{ needs.deploy-master.outputs.new_version }}'
+          DIGEST='${{ needs.deploy-master.outputs.image_digest }}'
+          IMAGE_BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          
+          # Extraction des composants de version (ex: v1.2.3 → 1, 2, 3)
+          VERSION=$(echo "$NEW_TAG" | sed 's/^v//')
+          MAJOR=$(echo "$VERSION" | cut -d'.' -f1)
+          MINOR=$(echo "$VERSION" | cut -d'.' -f2)
+          
+          echo "🏷️  Ajout des tags à l'image $DIGEST :"
+          
+          # Tag complet (v1.2.3)
+          docker buildx imagetools create --tag "${IMAGE_BASE}:${NEW_TAG}" "${IMAGE_BASE}@${DIGEST}"
+          echo "  ✅ ${NEW_TAG}"
+          
+          # Tag majeur.mineur (v1.2)
+          docker buildx imagetools create --tag "${IMAGE_BASE}:v${MAJOR}.${MINOR}" "${IMAGE_BASE}@${DIGEST}"
+          echo "  ✅ v${MAJOR}.${MINOR}"
+          
+          # Tag majeur (v1)
+          docker buildx imagetools create --tag "${IMAGE_BASE}:v${MAJOR}" "${IMAGE_BASE}@${DIGEST}"
+          echo "  ✅ v${MAJOR}"
+          
+          # Tag stable
+          docker buildx imagetools create --tag "${IMAGE_BASE}:stable" "${IMAGE_BASE}@${DIGEST}"
+          echo "  ✅ stable"
+          
+          echo ""
+          echo "✅ Tous les tags ont été ajoutés à la même image !"
