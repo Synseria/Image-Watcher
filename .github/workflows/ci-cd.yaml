@@ -375,6 +375,9 @@ jobs:
           DIGEST='${{ needs.deploy-master.outputs.image_digest }}'
           IMAGE_BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
           
+          # Conversion en minuscules (requis par GHCR)
+          IMAGE_BASE=$(echo "$IMAGE_BASE" | tr '[:upper:]' '[:lower:]')
+          
           # Extraction des composants de version (ex: v1.2.3 → 1, 2, 3)
           VERSION=$(echo "$NEW_TAG" | sed 's/^v//')
           MAJOR=$(echo "$VERSION" | cut -d'.' -f1)
