@@ -324,11 +324,14 @@ export class ImageWatcherService {
       const listeChangelogs = await Promise.all(
         //Itération sur les releases pour les traiter via l'IA
         listeReleases.map(async (r) => {
+          //Conversion du changelog en texte brut
+          let changelog = this.aiService.markdownToText(r.changelog || '');
+
           //Génération d’un résumé IA du changelog
-          const aiChangelog = await this.aiService.ask(r.changelog, RELEASE_NOTES_PROMPT).catch(() => r.changelog);
+          const aiChangelog = await this.aiService.ask(changelog, RELEASE_NOTES_PROMPT).catch(() => null);
 
           //Construction du bloc Markdown
-          return `## **[Version ${r.version}](${r.url})**\n${aiChangelog}\n*Publié le ${r?.publishedAt?.toLocaleDateString('fr-FR') || ''}*
+          return `## **[Version ${r.version}](${r.url})**\n${aiChangelog || changelog}\n*Publié le ${r?.publishedAt?.toLocaleDateString('fr-FR') || ''}*
         `;
         })
       );

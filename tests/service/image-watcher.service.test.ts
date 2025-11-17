@@ -30,7 +30,8 @@ describe('ImageWatcherService (unit tests)', () => {
     };
 
     mockAIService = {
-      ask: vi.fn().mockResolvedValue('AI summary')
+      ask: vi.fn().mockResolvedValue('AI summary'),
+      markdownToText: vi.fn().mockImplementation((text: string) => text)
     };
 
     mockReleaseService = {

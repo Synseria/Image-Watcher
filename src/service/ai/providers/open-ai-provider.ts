@@ -1,6 +1,8 @@
 import { injectable, singleton } from 'tsyringe';
 import { AIMessage, AIModel, AIRequestOptions } from '../domain/ai';
 import { AIConfigurationError, AIUnavailableError, IAIProvider } from '../domain/i-ai';
+import OpenAI from 'openai';
+import createLogger from '../../../core/logger';
 
 /**
  * Fournisseur OpenAI
@@ -20,20 +22,33 @@ export class OpenAIProvider implements IAIProvider {
   /** Model par défaut */
   private readonly defaultModel: string;
 
+  /** Client OpenAI */
+  private client: OpenAI;
+
   /** Constructeur */
   constructor() {
     //Récupération des variables d'environnement
     this.apiUrl = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
     this.apiKey = process.env.OPENAI_API_KEY;
     this.defaultModel = process.env.OPENAI_MODEL;
+
+    //Vérification de la configuration minimale
+    if ((!!this.apiKey || !!this.apiUrl) && !!this.defaultModel)
+      //Initialisation du client OpenAI
+      this.client = new OpenAI({
+        baseURL: this.apiUrl,
+        logger: createLogger(import.meta),
+        logLevel: 'info',
+        apiKey: this.apiKey,
+      });
   }
 
   /**
    * Vérifie si la configuration minimale est renseignée
    */
   isConfigured(): boolean {
-    //Vérification de la présence d'une configuration
-    return (!!this.apiKey || !!this.apiUrl) && !!this.defaultModel;
+    //Vérifie la présence du client
+    return this.client != null;
   }
 
   /**
@@ -46,25 +61,13 @@ export class OpenAIProvider implements IAIProvider {
       return false;
 
     try {
-      //Création du header
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      //Appel HTTP pour lister les modèles
+      const response = await this.client.models.list();
 
-      //Vérification de la présence d'une clef API
-      if (this.apiKey)
-        //Définition de la clef
-        headers['Authorization'] = `Bearer ${this.apiKey}`;
-
-      //Appel HTTP
-      const response = await fetch(`${this.apiUrl}/models`, { method: 'GET', headers });
-
-      //Vérification de la requête
-      if (!response.ok) {
-        //Lecture de la description
-        const errorData = await response.json().catch(() => ({}));
-
+      //Vérification de la réponse
+      if ((response as any)?.error)
         //Levée d'une erreur
-        throw new AIUnavailableError(errorData?.error?.message || `Échec ${response.status} ${response.statusText}`, { providerName: this.providerName, url: `${this.apiUrl}/models`, status: response.status });
-      }
+        throw new AIUnavailableError((response as any)?.error, { providerName: this.providerName });
 
       //Tout est OK
       return true;
@@ -83,43 +86,25 @@ export class OpenAIProvider implements IAIProvider {
       //Levée d'une erreur de configuration
       throw new AIConfigurationError('Clé API, URL ou modèle manquant.', { providerName: this.providerName });
 
-    //Définition de l'URL
-    const url = `${this.apiUrl}/chat/completions`;
-
-    //Définition du payload
-    const payload = {
-      model: options?.model || this.defaultModel,
-      messages,
-      temperature: options?.temperature ?? 0.3,
-      max_tokens: options?.maxTokens ?? 8128
-    };
-
-    //Définition des headers
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-
-    //Ajout de la clef API si présente
-    if (this.apiKey)
-      //Définition de l'autorisation
-      headers['Authorization'] = `Bearer ${this.apiKey}`;
-
     try {
       //Appel HTTP
-      const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+      const response = await this.client.chat.completions.create({
+        model: options?.model || this.defaultModel,
+        messages,
+        temperature: options?.temperature ?? 0.3,
+        max_tokens: options?.maxTokens ?? 8128,
+      });
 
       //Vérification de la réponse
-      if (!response.ok) {
-        //Lecture de la description
-        const errorData = await response.json().catch(() => ({}));
-
+      if ((response as any)?.error)
         //Levée d'une erreur
-        throw new AIUnavailableError(errorData?.error?.message || `Échec ${response.status} ${response.statusText}`, { providerName: this.providerName, url: url, status: response.status });
-      }
+        throw new AIUnavailableError((response as any)?.error, { providerName: this.providerName });
 
-      //Lecture des données
-      const data = await response.json();
+      //Récupération du résultat
+      const result = response?.choices?.[0]?.message?.content?.trim();
 
       //Retour du contenu
-      return data.choices?.[0]?.message?.content?.trim() || '';
+      return result;
     } catch (err: any) {
       //Levée d'une erreur
       throw new AIUnavailableError(err.message, err.details || { providerName: this.providerName });
@@ -135,38 +120,20 @@ export class OpenAIProvider implements IAIProvider {
       //Levée d'une erreur de configuration
       throw new AIConfigurationError('Clé API ou URL manquante.', { providerName: this.providerName });
 
-    //Définition de l'URL
-    const url = `${this.apiUrl}/models`;
-
-    //Définition des headers
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-
-    //Ajout de la clef API si présente
-    if (this.apiKey)
-      //Définition de l'autorisation
-      headers['Authorization'] = `Bearer ${this.apiKey}`;
-
     try {
-      //Appel HTTP
-      const response = await fetch(url, { method: 'GET', headers });
+      //Appel HTTP pour lister les modèles
+      const response = await this.client.models.list();
 
       //Vérification de la réponse
-      if (!response.ok) {
-        //Lecture de la description
-        const errorData = await response.json().catch(() => ({}));
-
+      if ((response as any)?.error)
         //Levée d'une erreur
-        throw new AIUnavailableError(errorData?.error?.message || `Échec ${response.status} ${response.statusText}`, { providerName: this.providerName });
-      }
+        throw new AIUnavailableError((response as any)?.error, { providerName: this.providerName });
 
-      //Lecture des données
-      const data = await response.json();
-
-      //Retour des modèles
-      return (data.data || []).map((m: any) => ({
-        id: m.id,
-        created: m.created,
-        owned_by: m.owned_by
+      //Retourne la liste des modèles
+      return response.data.map(model => ({
+        id: model.id,
+        createdAt: model.created * 1000,
+        ownedBy: model.owned_by
       }));
     } catch (err: any) {
       //Levée d'une erreur
