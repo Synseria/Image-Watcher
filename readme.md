@@ -27,7 +27,7 @@ metadata:
 ## Variables d'environnement (env)
 
 | Variable                  | Par défaut                | Description |
-|-------------------------- |--------------------------|-------------|
+|---------------------------|---------------------------|-------------|
 | `OPENAI_BASE_URL`         | https://api.openai.com/v1 | URL de l'API OpenAI |
 | `OPENAI_MODEL`            | gpt-4o-mini               | Modèle OpenAI utilisé |
 | `OPENAI_API_KEY`          | (optionnel)               | Clé API OpenAI (secret) |
