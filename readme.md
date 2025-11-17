@@ -1,149 +1,70 @@
-# Image-Watcher
+# Image Watcher
 
-Image Watcher est un service autonome conçu pour surveiller et gérer automatiquement les mises à jour des images Docker dans des déploiements Kubernetes (StatefulSet ou Deployment). Il permet de déclencher des mises à jour, de notifier des changements de version et de conserver un historique des images utilisées.
+Image Watcher est un opérateur Kubernetes qui surveille les images de conteneurs déployées (StatefulSet/Deployment), détecte automatiquement les nouvelles versions disponibles, récupère et synthétise les release notes via un LLM (OpenAI), puis notifie ou applique les mises à jour selon le mode choisi. Il permet ainsi de garder vos applications à jour, tout en informant les utilisateurs des changements apportés.
 
-## 🚀 Installation rapide
+## Fonctionnalités principales
 
-### Via Docker
+- **Surveillance automatique** des images de conteneurs sur vos clusters Kubernetes.
+- **Détection des nouvelles versions** (stratégie configurable : MAJOR, MINOR, PATCH).
+- **Récupération et synthèse IA** des release notes associées aux nouvelles versions (OpenAI).
+- **Notification** des utilisateurs via webhook (Discord, etc.) avec un résumé des changements et un lien de mise à jour.
+- **Mise à jour automatique** possible (mode AUTO_UPDATE) ou manuelle (mode NOTIFICATION).
+- **Confirmation** du succès ou de l'échec du déploiement après mise à jour.
+- **Configuration fine** via annotations Kubernetes ou variables d'environnement.
 
-```bash
-# Dernière version stable
-docker pull ghcr.io/synseria/image-watcher:latest
+## Annotations à ajouter sur vos StatefulSet/Deployment
 
-# Version spécifique
-docker pull ghcr.io/synseria/image-watcher:1.0.0
-
-# Branche develop (développement)
-docker pull ghcr.io/synseria/image-watcher:develop
-```
-
-### Via Kubernetes
+Ajoutez les annotations suivantes pour activer et configurer Image Watcher sur vos ressources :
 
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
 metadata:
-  name: image-watcher
-  annotations:
-    # Exemple d'annotation pour définir le mode et la stratégie
-    image-watcher/mode: 'NOTIFICATION'
-    image-watcher/strategy: 'MINOR'
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: image-watcher
-  template:
-    metadata:
-      labels:
-        app: image-watcher
-    spec:
-      containers:
-        - name: image-watcher
-          image: ghcr.io/synseria/image-watcher:latest
-          env:
-            - name: LOG_LEVEL
-              value: 'INFO'
-          # Ajoutez vos autres variables d'environnement ici
+	annotations:
+		image-watcher/watch: "true"                # Active la surveillance (obligatoire)
+		image-watcher/mode: "NOTIFICATION"         # Modes : AUTO_UPDATE, NOTIFICATION, DISABLED (optionnel)
+		image-watcher/strategy: "MINOR"            # Stratégie : MAJOR, MINOR, PATCH (optionnel)
 ```
 
-## Objectifs principaux
+## Variables d'environnement (env)
 
-### Surveillance d’images
+| Variable                  | Par défaut                | Description |
+|---------------------------|---------------------------|-------------|
+| `OPENAI_BASE_URL`         | https://api.openai.com/v1 | URL de l'API OpenAI |
+| `OPENAI_MODEL`            | gpt-4o-mini               | Modèle OpenAI utilisé |
+| `OPENAI_API_KEY`          | (optionnel)               | Clé API OpenAI (secret) |
+| `GITHUB_TOKEN`            | (optionnel)               | Token GitHub pour récupérer les releases |
+| `DISCORD_URL`             | (optionnel)               | Webhook Discord pour notifications |
+| `IMAGE_WATCHER_MODE`      | NOTIFICATION              | Mode global : AUTO_UPDATE, NOTIFICATION, DISABLED |
+| `IMAGE_WATCHER_STRATEGY`  | MINOR                     | Stratégie de mise à jour |
+| `IMAGE_WATCHER_OVERRIDE`  | false                     | Forcer les valeurs d'env au lieu des annotations |
+| `IMAGE_WATCHER_SCHEDULE`  | "0 */3 * * *"             | Cron d'exécution du watcher (désactive le mode planifié si vide) |
+| `RUN_ON_BOOT`             | true                      | Démarrer le scan au boot |
+| `PORT`                    | 3000                      | Port HTTP exposé |
+| `BASE_URL`                | (auto)                    | URL de base pour les notifications |
+| `TRUSTED_PROXY`           | 10.42.0.0/16              | Plage IP proxy de confiance |
+| `TZ`                      | Europe/Paris              | Fuseau horaire |
 
-- Vérifie régulièrement si de nouvelles versions des images utilisées dans les StatefulSets ou Deployments sont disponibles.
+## Déploiement via Helm (exemple)
 
-- Supporte différents niveaux de stratégie de mise à jour : ALL, MAJOR, MINOR, PATCH.
+Un chart Helm d'exemple est fourni dans le dossier `helm/`.
 
-### Mises à jour automatiques ou notifications
+```sh
+helm install image-watcher ./helm \
+	--set openai.apiKey="<VOTRE_OPENAI_KEY>" \
+	--set github.token="<VOTRE_GITHUB_TOKEN>" \
+	--set discord.url="<VOTRE_DISCORD_WEBHOOK>"
+```
 
-- Peut appliquer automatiquement les mises à jour (AUTO_UPDATE) ou simplement notifier l’utilisateur (NOTIFICATION) via des API sécurisées.
+## Modes de fonctionnement
 
-### Historisation et traçabilité
+- **AUTO_UPDATE** : Met à jour automatiquement l'image et notifie le résultat.
+- **NOTIFICATION** : Notifie l'utilisateur d'une nouvelle version avec un lien pour déclencher la mise à jour.
+- **DISABLED** : Désactive la surveillance pour la ressource.
 
-- Stocke les informations de mise à jour dans les annotations Kubernetes sur le metadata des StatefulSets/Deployments.
+## Exemple de notification (mode NOTIFICATION)
 
-- Permet de savoir exactement quelle version a été appliquée, quand, et quelle était la version précédente.
-
-## Configuration
-
-### Variables d'environnements
-
-| Variable d'environnement | Valeur par défaut | Description                                                                                             |
-| :----------------------- | :---------------: | :------------------------------------------------------------------------------------------------------ |
-| `NODE_ENV`               |   `production`    | Définit le mode d’exécution de l’application (`development`, `production`, `test`).                     |
-| `OPEN_AI_URL`            |    _(aucune)_     | URL de l’API OpenAI (ou équivalent compatible, ex : `https://api.openai.com/v1`).                       |
-| `OPEN_AI_KEY`            |    _(aucune)_     | Clé API pour authentifier les requêtes OpenAI.                                                          |
-| `OPEN_AI_MODEL`          |    _(aucune)_     | Nom du modèle utilisé (ex : `gpt-4-turbo`, `gpt-4o-mini`, etc.).                                        |
-| `LOG_LEVEL`              |      `INFO`       | Niveau de verbosité des logs (`ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`).                               |
-| `IMAGE_WATCHER_MODE`     |    _(aucune)_     | Mode de fonctionnement de l’image watcher. Ecrase les annotations : `AUTO_UPDATE`, `NOTIFICATION`, etc. |
-| `IMAGE_WATCHER_STRATEGY` |    _(aucune)_     | Stratégie de suivi des images. Ecrase les annotations : `ALL`, `MAJOR`, `MINOR`, `PATCH`, etc.          |
-| `RUN_ON_BOOT`            |      `FALSE`      | Si présent, exécute automatiquement la vérification au démarrage du service. `FALSE`, `TRUE`            |
-| `GITHUB_TOKEN`           |    _(aucune)_     | Jeton d’accès GitHub pour authentifier les appels à l’API (évite les limites de rate limit).            |
-
-### Annotations Kubernetes
-
-> ⚠️ **Important :** Ces annotations doivent être appliquées sur le **metadata.annotations** du **StatefulSet ou Deployment**, **et non directement sur les Pods**, afin que le watcher puisse les lire et les mettre à jour correctement.
-
-|    Annotation Kubernetes    | Valeur par défaut | Description                                                                                                                         |
-| :-------------------------: | :---------------: | :---------------------------------------------------------------------------------------------------------------------------------- |
-|      `image-watcher/*`      |   **(aucune)**    | Une annotation de type `image-watcher/*` est utilisée pour configurer le comportement du watcher d’images.                          |
-|    `image-watcher/mode`     | `"NOTIFICATION"`  | Mode de fonctionnement du watcher d’images (`AUTO_UPDATE`, `NOTIFICATION`, `DISABLED`).                                             |
-|  `image-watcher/strategy`   |      `"ALL"`      | Stratégie de suivi des images (`ALL`, `MAJOR`, `MINOR`, `PATCH`).                                                                   |
-| `image-watcher/release-url` |     _Calculé_     | URL du release ou tag associé à la mise à jour de l’image, ex : `https://api.github.com/repos/traefik/traefik/releases/tags/${tag}` |
-
-> ⚠️ Les annotations suivantes sont **gérées automatiquement** par le watcher et **ne doivent pas être modifiées par l’utilisateur** :
-
-| Annotation Kubernetes                 | Description                                                                              |
-| ------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `image-watcher/last-updated`          | Timestamp de la dernière mise à jour effectuée sur le déploiement ou StatefulSet.        |
-| `image-watcher/last-updated-version`  | Version de l’image utilisée lors de la dernière mise à jour.                             |
-| `image-watcher/last-notified`         | Timestamp du dernier événement de notification envoyé par le watcher.                    |
-| `image-watcher/last-notified-version` | Version de l’image pour laquelle une notification a été envoyée.                         |
-| `image-watcher/previous-version`      | Version précédente de l'image avant la mise à jour.                                      |
-| `image-watcher/current-version`       | Version actuelle de l'image après la mise à jour.                                        |
-| `image-watcher/token-update`          | Token unique utilisé pour sécuriser le déclenchement d'une mise à jour manuelle via API. |
+> Nouvelle version détectée : v1.2.3
+>
+> - Synthèse des release notes générée par IA
+> - [Déployer la version v1.2.3](https://votre-url/api/upgrade/namespace/name?token=...&version=1.2.3)
 
 ---
-
-## 🛠️ Développement
-
-### Prérequis
-
-- Node.js 22+
-- npm
-- Docker (pour les builds locaux)
-
-### Installation locale
-
-```bash
-# Cloner le repo
-git clone https://github.com/Synseria/Image-Watcher.git
-cd Image-Watcher
-
-# Installer les dépendances
-npm install
-
-# Copier le fichier d'environnement
-cp .env.example .env
-
-# Lancer en mode développement
-npm run dev
-```
-
-### Commandes disponibles
-
-```bash
-npm run dev          # Lancer en mode développement
-npm run build        # Build TypeScript
-npm test            # Lancer les tests
-npm run test-int    # Lancer les tests d'intégration
-npm run lint        # Vérifier le code
-npm run format      # Formater le code
-```
-
----
-
-## 📄 Licence
-
-Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
