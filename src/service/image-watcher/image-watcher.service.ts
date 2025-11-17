@@ -328,7 +328,7 @@ export class ImageWatcherService {
           let changelog = this.aiService.markdownToText(r.changelog || '');
 
           //Génération d’un résumé IA du changelog
-          const aiChangelog = await this.aiService.ask(changelog, RELEASE_NOTES_PROMPT).catch(() => null);
+          const aiChangelog = await this.aiService.ask(changelog, RELEASE_NOTES_PROMPT).catch((_: any) => null);
 
           //Construction du bloc Markdown
           return `## **[Version ${r.version}](${r.url})**\n${aiChangelog || changelog}\n*Publié le ${r?.publishedAt?.toLocaleDateString('fr-FR') || ''}*
