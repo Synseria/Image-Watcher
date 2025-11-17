@@ -68,7 +68,7 @@ jobs:
       # Exécute les tests unitaires avec Vitest et génère un rapport de
       # couverture de code qui indique quelles lignes sont testées
       - name: Tests avec couverture de code
-        run: npm run coverage
+        run: npm run coverage -- --reporter=json --reporter=default --outputFile=test-results.json
 
       # -----------------------------------------------------------------------
       # Étape 7 : Génération du résumé de couverture
@@ -78,10 +78,112 @@ jobs:
       - name: Résumé de couverture
         if: always()
         run: |
-          echo "## 📊 Rapport de Couverture de Code" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Rapport de Tests et Couverture" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
+          # ===================================================================
+          # PARTIE 1 : Résultats des Tests
+          # ===================================================================
+          if [ -f test-results.json ]; then
+            echo "### 🧪 Résultats des Tests" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            node -e "
+              const fs = require('fs');
+              const results = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+              
+              let totalTests = 0;
+              let passedTests = 0;
+              let failedTests = 0;
+              let skippedTests = 0;
+              let duration = 0;
+              
+              const testFiles = [];
+              
+              // Parcourir tous les fichiers de test
+              if (results.testResults) {
+                results.testResults.forEach(file => {
+                  const fileName = file.name.replace(process.cwd() + '/', '');
+                  const fileTests = file.assertionResults || [];
+                  
+                  let filePassed = 0;
+                  let fileFailed = 0;
+                  let fileSkipped = 0;
+                  
+                  fileTests.forEach(test => {
+                    totalTests++;
+                    if (test.status === 'passed') {
+                      passedTests++;
+                      filePassed++;
+                    } else if (test.status === 'failed') {
+                      failedTests++;
+                      fileFailed++;
+                    } else if (test.status === 'skipped' || test.status === 'pending') {
+                      skippedTests++;
+                      fileSkipped++;
+                    }
+                  });
+                  
+                  if (fileTests.length > 0) {
+                    testFiles.push({
+                      name: fileName,
+                      total: fileTests.length,
+                      passed: filePassed,
+                      failed: fileFailed,
+                      skipped: fileSkipped,
+                      duration: file.endTime - file.startTime
+                    });
+                  }
+                  
+                  duration += (file.endTime - file.startTime);
+                });
+              }
+              
+              // Résumé global
+              const successRate = totalTests > 0 ? ((passedTests / totalTests) * 100).toFixed(1) : '0';
+              const statusEmoji = failedTests === 0 ? '✅' : '❌';
+              
+              console.log(\`\${statusEmoji} **Statut Global** : \${passedTests}/\${totalTests} tests réussis (\${successRate}%)\`);
+              console.log('');
+              console.log('| Métrique | Valeur |');
+              console.log('|----------|--------|');
+              console.log(\`| ✅ Réussis | \${passedTests} |\`);
+              console.log(\`| ❌ Échoués | \${failedTests} |\`);
+              console.log(\`| ⏭️ Ignorés | \${skippedTests} |\`);
+              console.log(\`| ⏱️ Durée | \${(duration / 1000).toFixed(2)}s |\`);
+              console.log('');
+              
+              if (testFiles.length > 0) {
+                console.log('#### 📁 Détails par Fichier');
+                console.log('');
+                console.log('| Fichier | Tests | Réussis | Échoués | Ignorés | Durée |');
+                console.log('|---------|-------|---------|---------|---------|-------|');
+                
+                testFiles.forEach(file => {
+                  const emoji = file.failed === 0 ? '✅' : '❌';
+                  const durationStr = (file.duration / 1000).toFixed(2) + 's';
+                  console.log(\`| \${emoji} \${file.name} | \${file.total} | \${file.passed} | \${file.failed} | \${file.skipped} | \${durationStr} |\`);
+                });
+                
+                console.log('');
+              }
+            " >> $GITHUB_STEP_SUMMARY
+            
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "---" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Résultats des tests non disponibles**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # ===================================================================
+          # PARTIE 2 : Couverture de Code
+          # ===================================================================
           if [ -f coverage/coverage-final.json ]; then
+            echo "### 📈 Couverture de Code" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
             # Extraction des métriques globales
             node -e "
               const fs = require('fs');
@@ -129,7 +231,7 @@ jobs:
               const globalFuncPct = totalFunctions > 0 ? (coveredFunctions / totalFunctions * 100).toFixed(2) : '100.00';
               const globalLinePct = totalLines > 0 ? (coveredLines / totalLines * 100).toFixed(2) : '100.00';
               
-              console.log('### 📈 Couverture Globale');
+              console.log('#### 📊 Couverture Globale');
               console.log('');
               console.log('| Métrique | Couverture |');
               console.log('|----------|------------|');
@@ -138,7 +240,7 @@ jobs:
               console.log(\`| ⚡ Functions | \${globalFuncPct}% (\${coveredFunctions}/\${totalFunctions}) |\`);
               console.log(\`| 📄 Lines | \${globalLinePct}% (\${coveredLines}/\${totalLines}) |\`);
               console.log('');
-              console.log('### 📁 Détails par Fichier');
+              console.log('#### 📁 Détails par Fichier');
               console.log('');
               console.log('| Fichier | Statements | Branches | Functions | Lines |');
               console.log('|---------|------------|----------|-----------|-------|');

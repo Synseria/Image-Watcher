@@ -94,7 +94,7 @@ export class AIService extends ServiceProvider {
     }
 
     //Log
-    logger.debug(`Début de la conversation via le fournisseur "${provider.providerName}" avec ${messages.length} message(s).`);
+    logger.info(`Début de la conversation via le fournisseur "${provider.providerName}" avec ${messages.length} message(s).`);
 
     try {
       //Appel au provider
@@ -137,7 +137,7 @@ export class AIService extends ServiceProvider {
     ];
 
     //Log
-    logger.debug(`Exécution de la requête simple via le fournisseur "${provider.providerName}".`);
+    logger.info(`Exécution de la requête simple via le fournisseur "${provider.providerName}".`);
 
     //Appel au provider
     try {
