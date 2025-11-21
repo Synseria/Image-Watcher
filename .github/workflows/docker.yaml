@@ -80,7 +80,7 @@ jobs:
       # Étape 1 : Récupération du code source
       # -----------------------------------------------------------------------
       - name: Récupération du code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       # -----------------------------------------------------------------------
       # Étape 2 : Configuration de QEMU
