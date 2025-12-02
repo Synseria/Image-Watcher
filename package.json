@@ -19,7 +19,7 @@
   "dependencies": {
     "@kubernetes/client-node": "1.4.0",
     "dotenv": "17.2.3",
-    "express": "5.1.0",
+    "express": "5.2.1",
     "express-rate-limit": "8.2.1",
     "luxon": "3.7.2",
     "node-cron": "4.2.1",
@@ -32,13 +32,13 @@
     "tsyringe": "4.10.0"
   },
   "devDependencies": {
-    "@types/express": "5.0.5",
+    "@types/express": "5.0.6",
     "@types/luxon": "3.7.1",
     "@types/node": "24.10.1",
     "@types/node-cron": "3.0.11",
     "@types/supertest": "6.0.3",
-    "@typescript-eslint/eslint-plugin": "8.48.0",
-    "@typescript-eslint/parser": "8.48.0",
+    "@typescript-eslint/eslint-plugin": "8.48.1",
+    "@typescript-eslint/parser": "8.48.1",
     "@vitest/coverage-v8": "4.0.14",
     "@vitest/ui": "4.0.14",
     "eslint": "9.39.1",
