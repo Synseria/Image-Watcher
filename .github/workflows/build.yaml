@@ -67,7 +67,7 @@ jobs:
       # Upload le dossier dist/ comme artifact pour permettre aux autres jobs
       # ou workflows de réutiliser les fichiers compilés sans recompiler
       # Rétention de 7 jours pour économiser l'espace de stockage
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: build-output
           path: dist/
