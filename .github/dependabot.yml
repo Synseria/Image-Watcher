@@ -25,7 +25,7 @@ updates:
   - package-ecosystem: 'npm'
     directory: '/'              # Racine du projet (package.json situé ici)
     schedule:
-      interval: 'daily'         # Fréquence de scan : une fois par jour
+      interval: 'weekly'         # Fréquence de scan : une fois par semaine
       time: '12:00'             # Heure de génération des PR (UTC)
     open-pull-requests-limit: 10 # Limite pour éviter d'inonder le flux PR
 
@@ -55,7 +55,7 @@ updates:
   - package-ecosystem: 'github-actions'
     directory: '/'              # Analyse tous les workflows YAML
     schedule:
-      interval: 'daily'
+      interval: 'weekly'
       time: '12:00'
     labels:
       - 'dependencies'
@@ -67,7 +67,7 @@ updates:
   - package-ecosystem: 'docker'
     directory: '/'              # Dockerfile à la racine
     schedule:
-      interval: 'daily'
+      interval: 'weekly'
       time: '12:00'
     labels:
       - 'dependencies'
