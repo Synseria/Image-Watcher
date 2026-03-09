@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto';
 import { env } from 'process';
 import { inject, injectable, singleton } from 'tsyringe';
 import createLogger from '../../core/logger';
@@ -11,6 +10,7 @@ import { Application } from '../orchestrator/domain/application';
 import { OrchestratorService } from '../orchestrator/orchestrator.service';
 import { RegistryService } from '../registry/registry.service';
 import { ReleaseService } from '../release/release.service';
+import { StateService } from '../state/state.service';
 import { AnnotationMeta, ApplicationAnnotation, TypeAnnotation, TypeMode, TypeParam, TypeStrategy } from './domain/annotation';
 import { WatchedApplication } from './domain/application';
 
@@ -28,7 +28,7 @@ export class ImageWatcherService {
     [
       TypeAnnotation.MODE,
       {
-        default: TypeMode.AUTO_UPDATE,
+        default: TypeMode.NOTIFICATION,
         description: "Mode de fonctionnement de l'image-watcher",
         options: Object.values(TypeMode),
         type: TypeParam.CONFIGURATION
@@ -42,54 +42,6 @@ export class ImageWatcherService {
         options: Object.values(TypeStrategy),
         type: TypeParam.CONFIGURATION
       }
-    ],
-    [
-      TypeAnnotation.LAST_UPDATED,
-      {
-        description: 'Date de la dernière mise à jour appliquée',
-        default: undefined,
-        type: TypeParam.INTERNAL
-      }
-    ],
-    [
-      TypeAnnotation.LAST_NOTIFIED,
-      {
-        description: 'Date de la dernière notification envoyée',
-        default: undefined,
-        type: TypeParam.INTERNAL
-      }
-    ],
-    [
-      TypeAnnotation.LAST_NOTIFIED_VERSION,
-      {
-        description: 'Dernière version notifiée',
-        default: undefined,
-        type: TypeParam.INTERNAL
-      }
-    ],
-    [
-      TypeAnnotation.CURRENT_VERSION,
-      {
-        description: 'Version courante',
-        default: undefined,
-        type: TypeParam.INTERNAL
-      }
-    ],
-    [
-      TypeAnnotation.PREVIOUS_VERSION,
-      {
-        description: 'Version précédente avant la mise à jour',
-        default: undefined,
-        type: TypeParam.INTERNAL
-      }
-    ],
-    [
-      TypeAnnotation.TOKEN_UPDATE,
-      {
-        description: 'Token de mise à jours',
-        default: undefined,
-        type: TypeParam.INTERNAL
-      }
     ]
   ]);
 
@@ -101,71 +53,9 @@ export class ImageWatcherService {
     @inject(NotificationService) private notificationService: NotificationService,
     @inject(OrchestratorService) private orchestratorService: OrchestratorService,
     @inject(AIService) private aiService: AIService,
-    @inject(ReleaseService) private releaseService: ReleaseService
+    @inject(ReleaseService) private releaseService: ReleaseService,
+    @inject(StateService) private stateService: StateService
   ) { }
-
-  /**
-   * Récupération d'une application
-   */
-  async findApplication(namespace: string, name: string): Promise<WatchedApplication> {
-    //Récupération de l'application
-    const app = await this.orchestratorService.getApplication(namespace, name);
-
-    //Vérification de la présence de l'application
-    if (app)
-      //Enrichissement de l'application
-      return this.toWatchedApplication(app);
-
-    //Aucune application
-    return null;
-  }
-
-  /**
-   * Mise à jour de l'application
-   */
-  async upgradeApplication(application: WatchedApplication, nextVersion: string): Promise<boolean> {
-    //Récupération de la version courante
-    const currentTag = application.imageInformation.tag;
-
-    //Définition des nouveaux paramètres
-    const newParams: any = {};
-
-    //Définition
-    newParams[TypeAnnotation.LAST_UPDATED] = new Date();
-    newParams[TypeAnnotation.LAST_UPDATED_VERSION] = nextVersion;
-    newParams[TypeAnnotation.PREVIOUS_VERSION] = currentTag;
-    newParams[TypeAnnotation.CURRENT_VERSION] = nextVersion;
-
-    //Réinitialisation, si présent du token
-    newParams[TypeAnnotation.TOKEN_UPDATE] = null;
-
-    //Définition de l'image suivante
-    const nextImage = `${application.imageInformation.registry}/${application.imageInformation.repository}:${nextVersion}`;
-
-    //Patch de l'application
-    const success = await this.orchestratorService.patchApplication(application, newParams, nextImage);
-
-    //Vérification du succès
-    if (success) {
-      //Log
-      logger.info(`Mise à jour terminée de ${application.namespace}/${application.name} ${currentTag} vers ${nextVersion}.`);
-
-      //Envoi de la notification
-      await this.notificationService.broadcast(`Mise à jour terminée de ${application.namespace}/${application.name} ${currentTag} vers ${nextVersion}.`, {
-        username: `${application.imageInformation.repository}:${nextVersion}`
-      });
-    } else {
-      //Log
-      logger.error(`Échec de la mise à jour de ${application.namespace}/${application.name} vers ${nextVersion}.`);
-
-      //Envoi de la notification
-      await this.notificationService.broadcast(`Échec de la mise à jour de ${application.namespace}/${application.name} ${currentTag} vers ${nextVersion}.`, {
-        username: `${application.imageInformation.repository}:${nextVersion}`
-      });
-    }
-
-    return success;
-  }
 
   /**
    * Déclenchement du traitement des images
@@ -175,12 +65,18 @@ export class ImageWatcherService {
     logger.info(`Début du traitement image-watcher.`);
 
     //Récupérations des applications
-    let listeApplications: Application[] = await this.orchestratorService.listeApplications();
+    const listeApplications: Application[] = await this.orchestratorService.listeApplications();
+
+    //Mode "watch all" : toutes les apps, sinon seulement celles annotées
+    const watchAll = env.IMAGE_WATCHER_WATCH_ALL === 'true';
 
     //Itération sur les applications
     for (const app of listeApplications) {
-      //Vérification de la présence d'image-watcher
-      if (Object.keys(app.annotations).some((v) => v.includes('image-watcher')))
+      //Vérification de la présence d'une annotation de type image-watcher ou du mode watch all
+      const hasAnnotation = Object.keys(app.annotations).some((v) => v.includes('image-watcher'));
+
+      //Vérification du mode watch all ou de la présence d'une annotation de type image-watcher
+      if (watchAll || hasAnnotation)
         //Traitement de l'application
         await this.processApplication(app);
     }
@@ -192,13 +88,13 @@ export class ImageWatcherService {
   /**
    * Traitement d'une application
    */
-  async processApplication(appOrchestator: Application): Promise<void> {
+  async processApplication(appOrchestator: Application, force = false): Promise<void> {
     try {
       const application: WatchedApplication = this.toWatchedApplication(appOrchestator);
       let listeNewests: Array<ParsedSemver>;
 
       //Log
-      logger.info(`Traitement de l'application "${application.namespace}/${application.name}" (mode=${application.parsedAnnotations[TypeAnnotation.MODE]}, stratégie=${application.parsedAnnotations[TypeAnnotation.STRATEGY]}).`);
+      logger.info(`Traitement de l'application "${application.namespace}/${application.name}" (mode=${application.parsedAnnotations[TypeAnnotation.MODE]}, stratégie=${application.parsedAnnotations[TypeAnnotation.STRATEGY]}${force ? ', force=true' : ''}).`);
 
       //Vérification du mode DISABLED
       if (application.parsedAnnotations[TypeAnnotation.MODE] == TypeMode.DISABLED || application.parsedAnnotations[TypeAnnotation.WATCH] === false)
@@ -214,27 +110,24 @@ export class ImageWatcherService {
       //Analyse des versions
       const mapSemvers = await analyzeSemverVersions(currentVersion, listeTags.map((tag) => tag.tag));
 
-      //Vérification du la stratégie
-      if (application.parsedAnnotations[TypeAnnotation.STRATEGY] === TypeStrategy.ALL) {
-        //Définitions de la liste des nouveaux tags
+      //Vérification de la stratégie
+      if (application.parsedAnnotations[TypeAnnotation.STRATEGY] === TypeStrategy.ALL)
+        //Définition de la liste des tags
         listeNewests = mapSemvers.all;
-      } else if (application.parsedAnnotations[TypeAnnotation.STRATEGY] === TypeStrategy.MAJOR) {
-        //Définitions de la liste des nouveaux tags
+      else if (application.parsedAnnotations[TypeAnnotation.STRATEGY] === TypeStrategy.MAJOR)
+        //Définition de la liste des tags
         listeNewests = [...mapSemvers.majors, ...mapSemvers.minors, ...mapSemvers.patches];
-      } else if (application.parsedAnnotations[TypeAnnotation.STRATEGY] === TypeStrategy.MINOR) {
-        //Définitions de la liste des nouveaux tags
+      else if (application.parsedAnnotations[TypeAnnotation.STRATEGY] === TypeStrategy.MINOR)
+        //Définition de la liste des tags
         listeNewests = [...mapSemvers.minors, ...mapSemvers.patches];
-      } else if (application.parsedAnnotations[TypeAnnotation.STRATEGY] === TypeStrategy.PATCH) {
-        //Définitions de la liste des nouveaux tags
+      else if (application.parsedAnnotations[TypeAnnotation.STRATEGY] === TypeStrategy.PATCH)
+        //Définition de la liste des tags
         listeNewests = [...mapSemvers.patches];
-      }
 
       //Vérification de la présence de nouvelle version
       if (listeNewests.length == 0) {
         //Log
         logger.info(`Aucune nouvelle version disponible pour "${application.namespace}/${application.name}".`);
-
-        //Fin de traitement
         return;
       } else
         //Log
@@ -243,60 +136,81 @@ export class ImageWatcherService {
       //Définition de la nouvelle version
       const nextVersion: string = listeNewests[0].original;
 
-      //Vérification du mode
-      if (application.parsedAnnotations[TypeAnnotation.MODE] == TypeMode.AUTO_UPDATE) {
-        //Log
-        logger.info(`Mise à jour de l'application "${application.namespace}/${application.name}" depuis ${currentVersion} vers ${nextVersion} (mode auto).`);
+      //Clé de l'état en mémoire
+      const stateKey = `${application.namespace}/${application.name}`;
+      const state = this.stateService.get(stateKey);
 
-        //Récupération du changelog
-        const changelog = await this.getAIChangelog(application.imageInformation.repository, listeNewests.map((tag) => tag.original), application);
+      //Vérification si une notification doit être envoyée
+      const { newVersions, shouldRemind } = shouldSendNotification(state?.notifiedAt, state?.version, listeNewests);
+
+      //En mode forcé, on utilise toutes les versions disponibles sans filtrage anti-spam
+      const versionsToNotify = force ? listeNewests : newVersions;
+
+      //Vérification de la présence de nouvelles versions ou si un rappel est nécessaire
+      if (force || newVersions.length || shouldRemind) {
+        //Récupération du changelog AI
+        const changelog = await this.getAIChangelog(application.imageInformation.repository, versionsToNotify.map((tag) => tag.original), application);
+
+        //Mise à jour de l'état persisté (anti-spam)
+        this.stateService.set(stateKey, { version: nextVersion, notifiedAt: new Date() });
 
         //Envoi de la notification
         await this.notificationService.broadcast(changelog, {
-          username: `${application.name}:${nextVersion}`
+          username: `${application.imageInformation.repository}:${nextVersion}`
         });
-
-        //Mise à jour de l'application
-        await this.upgradeApplication(application, nextVersion);
-      } else if (application.parsedAnnotations[TypeAnnotation.MODE] == TypeMode.NOTIFICATION) {
-        //Vérification si une notification doit être envoyée
-        const { newVersions, shouldRemind } = shouldSendNotification(application.parsedAnnotations[TypeAnnotation.LAST_NOTIFIED], application.parsedAnnotations[TypeAnnotation.LAST_NOTIFIED_VERSION], listeNewests);
-
-        //Vérification de la présence de nouvelle versions, ou si les délais sont dépassé
-        if (newVersions.length || shouldRemind) {
-          //Récupération du changelog
-          const changelog = await this.getAIChangelog(application.imageInformation.repository, newVersions.map((tag) => tag.original), application);
-
-          //Définition des paramètres
-          const newParams: any = {};
-          //Définition des annotations
-          newParams[TypeAnnotation.LAST_NOTIFIED] = new Date();
-          newParams[TypeAnnotation.LAST_NOTIFIED_VERSION] = nextVersion;
-          newParams[TypeAnnotation.CURRENT_VERSION] = currentVersion;
-          newParams[TypeAnnotation.TOKEN_UPDATE] = randomUUID();
-
-          //Patch de l'application
-          const success = await this.orchestratorService.patchApplication(application, newParams);
-
-          //Vérification du succès
-          if (success) {
-            //Construction de l'url
-            const webhookUrl = `${env.BASE_URL ? env.BASE_URL : `http://localhost:${env.PORT || '3000'}`}/api/upgrade/${application.namespace}/${application.name}?token=${newParams[TypeAnnotation.TOKEN_UPDATE]}&version=${nextVersion}`;
-
-            //Envoi de la notification
-            await this.notificationService.broadcast([...changelog, `\n\n**[Déployer la version ${nextVersion}](${webhookUrl})**`], {
-              username: `${application.imageInformation.repository}:${nextVersion}`
-            });
-          } else
-            //Log
-            logger.error(`Erreur lors de la mise à jour de l'application ${application.namespace}/${application.name} (mode notification).`);
-        } else
-          //Log
-          logger.debug(`Aucune nouvelle version ou rappel non requis pour "${application.namespace}/${application.name}" (mode notification).`);
-      }
+      } else
+        //Log
+        logger.debug(`Aucune nouvelle version ou rappel non requis pour "${application.namespace}/${application.name}".`);
     } catch (error: any) {
       //Log
       logger.error(error, `Une erreur est survenue lors du traitement de l'application ${appOrchestator.namespace}/${appOrchestator.name}: ${error?.message}`);
+    }
+  }
+
+  /**
+   * Recherche d'une application par namespace et nom
+   */
+  async findApplication(namespace: string, name: string): Promise<Application | undefined> {
+    //Récupération de toutes les applications
+    const apps = await this.orchestratorService.listeApplications();
+
+    //Retourne l'application correspondante
+    return apps.find((app) => app.namespace === namespace && app.name === name);
+  }
+
+  /**
+   * Notification directe d'une transition de version fournie par Flux.
+   * Contourne le rescan du registry et l'anti-spam : Flux a déjà validé la mise à jour.
+   */
+  async notifyVersionTransition(appOrchestrator: Application, oldVersion: string, newVersion: string): Promise<void> {
+    try {
+      //Enrichissement de l'application
+      const application = this.toWatchedApplication(appOrchestrator);
+
+      //Respect du mode DISABLED
+      if (application.parsedAnnotations[TypeAnnotation.MODE] == TypeMode.DISABLED || application.parsedAnnotations[TypeAnnotation.WATCH] === false) {
+        //Log
+        logger.info(`Application "${application.namespace}/${application.name}" en mode DISABLED, notification ignorée.`);
+        return;
+      }
+
+      //Log
+      logger.info(`Notification de transition pour "${application.namespace}/${application.name}": ${oldVersion} -> ${newVersion}`);
+
+      //Récupération du changelog AI pour la version cible
+      const changelog = await this.getAIChangelog(application.imageInformation.repository, [newVersion], application);
+
+      //Mise à jour de l'état persisté
+      const stateKey = `${application.namespace}/${application.name}`;
+      this.stateService.set(stateKey, { version: newVersion, notifiedAt: new Date() });
+
+      //Envoi de la notification
+      await this.notificationService.broadcast(changelog, {
+        username: `${application.imageInformation.repository}:${newVersion}`
+      });
+    } catch (error: any) {
+      //Log
+      logger.error(error, `Erreur lors de la notification de transition ${oldVersion} -> ${newVersion} pour ${appOrchestrator.namespace}/${appOrchestrator.name}: ${error?.message}`);
     }
   }
 
@@ -307,28 +221,22 @@ export class ImageWatcherService {
     try {
       //Construction des releaseInfo à partir des tags fournis
       const listeReleases = await Promise.all(
-        //Itération sur les tags pour récupérer les releases
         tags.map(async (tag) => {
-          //Appel du service de release (GitHub, custom, etc.)
-          const release = await this.releaseService.getRelease(repository, tag, {
+          return this.releaseService.getRelease(repository, tag, {
             ...application.imageInformation,
             ...application.parsedAnnotations
           });
-
-          //Retourne l'objet complet (tag + changelog brut)
-          return release;
         })
       );
 
       //Itération sur les releases pour les traiter via l'IA
       const listeChangelogs = await Promise.all(
-        //Itération sur les releases pour les traiter via l'IA
         listeReleases.map(async (r) => {
           //Conversion du changelog en texte brut
-          let changelog = this.aiService.markdownToText(r.changelog || '');
+          const changelog = this.aiService.markdownToText(r.changelog || '');
 
-          //Génération d’un résumé IA du changelog
-          const aiChangelog = await this.aiService.ask(changelog, RELEASE_NOTES_PROMPT).catch();
+          //Génération d'un résumé IA du changelog (fallback sur changelog brut en cas d'erreur)
+          const aiChangelog = await this.aiService.ask(changelog, RELEASE_NOTES_PROMPT).catch(() => changelog);
 
           //Construction du bloc Markdown
           return `## **[Version ${r.version}](${r.url})**\n${aiChangelog || changelog}\n*Publié le ${r?.publishedAt?.toLocaleDateString('fr-FR') || ''}*
@@ -340,8 +248,6 @@ export class ImageWatcherService {
     } catch (error: any) {
       //Log
       logger.error(error, `Une erreur est survenue lors de la génération du changelog IA pour ${repository}: ${error?.message}`);
-
-      //Retourne une liste vide
       return [];
     }
   }
@@ -352,55 +258,40 @@ export class ImageWatcherService {
   private async getCurrentVersion(application: WatchedApplication, listeTags?: { tag: string; digest: string }[]): Promise<string> {
     //Vérification de la présence d'un tag Semver
     if (isSemver(application.imageInformation?.tag))
-      //Récupération du tag
       return application.imageInformation?.tag;
-    else {
-      //Lecture des annotations
-      const annotatedVersion = application.parsedAnnotations[TypeAnnotation.CURRENT_VERSION];
 
-      //Vérification de la présence de l'annotation
-      if (annotatedVersion)
-        //Retour de la version
-        return annotatedVersion;
+    //Lecture de la version annotée (fallback pour les tags non-semver)
+    const annotatedVersion = application.parsedAnnotations[TypeAnnotation.CURRENT_VERSION];
+    if (annotatedVersion)
+      return annotatedVersion;
 
-      //Recherche des applications par leurs digest
-      const filteredTags = listeTags.filter((t) => t?.digest === application?.imageInformation?.digest);
+    //Recherche des applications par leurs digest
+    const filteredTags = listeTags.filter((t) => t?.digest === application?.imageInformation?.digest);
 
-      //Vérifiction de la présence d'un tag
-      if (filteredTags.length === 0)
-        //Aucun tag
-        return null;
-      else if (filteredTags.length === 1)
-        //Un seul tag
-        return filteredTags[0].tag;
+    if (filteredTags.length === 0)
+      return null;
+    else if (filteredTags.length === 1)
+      return filteredTags[0].tag;
 
-      //Filtre sur les tags semver
-      const semverTags = filteredTags.filter((t) => isSemver(t.tag));
+    //Filtre sur les tags semver
+    const semverTags = filteredTags.filter((t) => isSemver(t.tag));
 
-      //Vérifiction de la présence d'un tag
-      if (semverTags.length === 0)
-        //Aucun tag
-        return null;
-      else if (semverTags.length === 1)
-        //Un seul tag
-        return semverTags[0].tag;
+    if (semverTags.length === 0)
+      return null;
+    else if (semverTags.length === 1)
+      return semverTags[0].tag;
 
-      //Tris des tags restants
-      const sortedTags = semverTags.sort((a, b) => {
-        const aBase = a.tag.split('-')[0];
-        const bBase = b.tag.split('-')[0];
+    //Tris des tags restants — priorité à la version "pure" (sans suffix)
+    const sortedTags = semverTags.sort((a, b) => {
+      const aBase = a.tag.split('-')[0];
+      const bBase = b.tag.split('-')[0];
 
-        //Priorité à la version “pure” (sans suffix)
-        if (a.tag === aBase && b.tag !== bBase) return -1;
-        if (a.tag !== aBase && b.tag === bBase) return 1;
+      if (a.tag === aBase && b.tag !== bBase) return -1;
+      if (a.tag !== aBase && b.tag === bBase) return 1;
+      return 0;
+    });
 
-        //Sinon, ordre naturel
-        return 0;
-      });
-
-      //Retour du meilleur tag
-      return sortedTags.length > 0 ? sortedTags[0].tag : null;
-    }
+    return sortedTags.length > 0 ? sortedTags[0].tag : null;
   }
 
   /**
@@ -419,7 +310,6 @@ export class ImageWatcherService {
    * Vérification de la présence d'une annotation de type image-watcher
    */
   private hasImageWatcher(listeAnnotations: Record<string, string>): boolean {
-    //Itération sur les annotations à la recherche d'une annotations image-watcher
     return Object.keys(listeAnnotations).some((k) => k.toLowerCase().includes('image-watcher'));
   }
 
@@ -427,18 +317,11 @@ export class ImageWatcherService {
    * Parsing d'une application
    */
   private getAnnotations(listeAnnotations: Record<string, string>): ApplicationAnnotation {
-    //Enumération
     return {
       [TypeAnnotation.WATCH]: this.parseAnnotation(listeAnnotations, TypeAnnotation.WATCH, env.IMAGE_WATCHER_WATCH) as boolean,
       [TypeAnnotation.MODE]: this.parseAnnotation(listeAnnotations, TypeAnnotation.MODE, env.IMAGE_WATCHER_MODE),
       [TypeAnnotation.STRATEGY]: this.parseAnnotation(listeAnnotations, TypeAnnotation.STRATEGY, env.IMAGE_WATCHER_STRATEGY) as TypeStrategy,
       [TypeAnnotation.CURRENT_VERSION]: listeAnnotations[TypeAnnotation.CURRENT_VERSION] as string,
-      [TypeAnnotation.PREVIOUS_VERSION]: listeAnnotations[TypeAnnotation.PREVIOUS_VERSION] as string,
-      [TypeAnnotation.LAST_UPDATED]: listeAnnotations[TypeAnnotation.LAST_UPDATED] ? (new Date(listeAnnotations[TypeAnnotation.LAST_UPDATED]) as Date) : undefined,
-      [TypeAnnotation.LAST_UPDATED_VERSION]: listeAnnotations[TypeAnnotation.LAST_UPDATED_VERSION] as string,
-      [TypeAnnotation.LAST_NOTIFIED]: listeAnnotations[TypeAnnotation.LAST_NOTIFIED] ? (new Date(listeAnnotations[TypeAnnotation.LAST_NOTIFIED]) as Date) : undefined,
-      [TypeAnnotation.LAST_NOTIFIED_VERSION]: listeAnnotations[TypeAnnotation.LAST_NOTIFIED_VERSION] as string,
-      [TypeAnnotation.TOKEN_UPDATE]: listeAnnotations[TypeAnnotation.TOKEN_UPDATE] as string,
       [TypeAnnotation.RELEASE_URL]: listeAnnotations[TypeAnnotation.RELEASE_URL] as string
     };
   }
@@ -452,42 +335,31 @@ export class ImageWatcherService {
     //Récupération des méta-données
     const meta = this.mapAnnotationMeta.get(key);
 
-    //Recherche sans altérer la casse d’origine
+    //Recherche sans altérer la casse d'origine
     const directVal = listeAnnotations[key] ?? listeAnnotations[key.toLowerCase()];
 
     //Définition de la valeur de l'environnement
     if (env.IMAGE_WATCHER_OVERRIDE === 'true')
-      //Définition de la valeur de l'environnement
       rawVal = environnement ?? directVal ?? meta?.default;
     else
-      //Définition de la valeur brute
       rawVal = directVal ?? environnement ?? meta?.default;
 
     //Vérification de la présence de méta-données
     if (!meta)
-      //Retourne la valeur brute
       return rawVal;
 
     //Vérification des options
     if (meta.options) {
-      //Conversion en majuscules
       const upper = rawVal?.toString().toUpperCase();
-      //Vérification de la présence dans les options
       if (upper && meta.options.includes(upper as never)) {
-        //Retourne la valeur en majuscules
         return upper;
       }
-      //Log de l'erreur
       if (upper) {
-        //Log
         logger.warn({ key, value: upper, options: meta.options, default: meta.default }, `La valeur fournie pour l'annotation "${key}" n'est pas supportée; utilisation de la valeur par défaut.`);
       }
-
-      //Retourne la valeur par défaut
       return meta.default;
     }
 
-    //Retourne la valeur brute
     return rawVal;
   }
 }

@@ -14,6 +14,7 @@ Ton rôle est d’analyser un changelog ou des notes de version et d’en produi
 2. Si la release semble être une **mise à jour mineure ou patch** (ex : correctifs, maintenance), garde un ton sobre et court.
 3. Si la release contient des **changements majeurs**, structure le résumé selon cet ordre :
    - 🛡️ **Sécurité / CVE** (corrections de failles, mises à jour de dépendances critiques)
+   - ⚠️ **Ruptures de compatibilité (Breaking Changes)**
    - ✨ **Nouvelles fonctionnalités / Améliorations**
    - ⚙️ **Changements notables** (interface, API, compatibilité, performance)
    - 🐞 **Corrections de bugs**

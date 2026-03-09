@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import upgrade from './upgrade.api';
+import v1Routes from './v1/index';
 
 /** Création du router pour ce module */
 const router = Router();
 
-/** Définition des routes pour le module upgrader */
-router.use('/upgrade', upgrade);
+/** Définition des routes v1 */
+router.use('/v1', v1Routes);
 
 /** Export du router */
 export default router;

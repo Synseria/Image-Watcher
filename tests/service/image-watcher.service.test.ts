@@ -12,8 +12,11 @@ describe('ImageWatcherService (unit tests)', () => {
   let mockOrchestratorService: any;
   let mockAIService: any;
   let mockReleaseService: any;
+  let mockStateService: any;
 
   beforeEach(() => {
+    vi.unstubAllEnvs();
+
     // Création des mocks
     mockRegistryService = {
       getListeTags: vi.fn()
@@ -25,7 +28,6 @@ describe('ImageWatcherService (unit tests)', () => {
 
     mockOrchestratorService = {
       getApplication: vi.fn(),
-      patchApplication: vi.fn(),
       listeApplications: vi.fn()
     };
 
@@ -38,113 +40,25 @@ describe('ImageWatcherService (unit tests)', () => {
       getRelease: vi.fn()
     };
 
+    // Mock StateService avec Map interne (comportement réel pour les tests anti-spam)
+    const stateStore = new Map<string, any>();
+    mockStateService = {
+      get: vi.fn((key: string) => stateStore.get(key)),
+      set: vi.fn((key: string, state: any) => stateStore.set(key, state))
+    };
+
     // Instanciation du service avec les mocks
-    service = new ImageWatcherService(mockRegistryService, mockNotificationService, mockOrchestratorService, mockAIService, mockReleaseService);
-  });
-
-  describe('findApplication()', () => {
-    it("retourne null si l'application n'existe pas", async () => {
-      mockOrchestratorService.getApplication.mockResolvedValue(null);
-
-      const result = await service.findApplication('test-ns', 'test-app');
-
-      expect(result).toBeNull();
-      expect(mockOrchestratorService.getApplication).toHaveBeenCalledWith('test-ns', 'test-app');
-    });
-
-    it("enrichit et retourne l'application si elle existe", async () => {
-      const app: Application = {
-        namespace: 'test-ns',
-        name: 'test-app',
-        image: 'registry.io/repo:v1.0.0',
-        annotations: {
-          [TypeAnnotation.MODE]: TypeMode.AUTO_UPDATE
-        },
-        type: 'Deployment',
-        imageInformation: {
-          registry: 'registry.io',
-          repository: 'repo',
-          tag: 'v1.0.0',
-          digest: 'sha256:abc123'
-        }
-      };
-
-      mockOrchestratorService.getApplication.mockResolvedValue(app);
-
-      const result = await service.findApplication('test-ns', 'test-app');
-
-      expect(result).toBeDefined();
-      expect(result?.namespace).toBe('test-ns');
-      expect(result?.name).toBe('test-app');
-      expect(result?.hasImageWatcher).toBe(true);
-      expect(result?.parsedAnnotations).toBeDefined();
-    });
-  });
-
-  describe('upgradeApplication()', () => {
-    const createTestApplication = (): WatchedApplication => ({
-      namespace: 'test-ns',
-      name: 'test-app',
-      image: 'registry.io/repo:v1.0.0',
-      annotations: {},
-      imageInformation: {
-        registry: 'registry.io',
-        repository: 'repo',
-        tag: 'v1.0.0',
-        digest: 'sha256:abc123'
-      },
-      parsedAnnotations: {
-        [TypeAnnotation.MODE]: TypeMode.AUTO_UPDATE,
-        [TypeAnnotation.STRATEGY]: TypeStrategy.ALL
-      },
-      hasImageWatcher: true,
-      type: 'Deployment'
-    });
-
-    it("met à jour l'application avec succès", async () => {
-      const app = createTestApplication();
-      mockOrchestratorService.patchApplication.mockResolvedValue(true);
-
-      const result = await service.upgradeApplication(app, 'v1.1.0');
-
-      expect(result).toBe(true);
-      expect(mockOrchestratorService.patchApplication).toHaveBeenCalledWith(
-        app,
-        expect.objectContaining({
-          [TypeAnnotation.CURRENT_VERSION]: 'v1.1.0',
-          [TypeAnnotation.PREVIOUS_VERSION]: 'v1.0.0',
-          [TypeAnnotation.LAST_UPDATED]: expect.any(Date),
-          [TypeAnnotation.TOKEN_UPDATE]: null
-        }),
-        'registry.io/repo:v1.1.0'
-      );
-      expect(mockNotificationService.broadcast).toHaveBeenCalledWith(
-        expect.stringContaining('Mise à jour terminée'),
-        expect.objectContaining({
-          username: 'repo:v1.1.0'
-        })
-      );
-    });
-
-    it("gère l'échec de mise à jour", async () => {
-      const app = createTestApplication();
-      mockOrchestratorService.patchApplication.mockResolvedValue(false);
-
-      const result = await service.upgradeApplication(app, 'v1.1.0');
-
-      expect(result).toBe(false);
-      expect(mockNotificationService.broadcast).toHaveBeenCalledWith(expect.stringContaining('Échec de la mise à jour'), expect.any(Object));
-    });
+    service = new ImageWatcherService(mockRegistryService, mockNotificationService, mockOrchestratorService, mockAIService, mockReleaseService, mockStateService);
   });
 
   describe('processImageWatcher()', () => {
-    it('traite toutes les applications avec image-watcher', async () => {
+    it('traite seulement les applications annotées par défaut', async () => {
       const apps: Application[] = [
         {
           namespace: 'ns1',
           name: 'app1',
           image: 'registry.io/app1:v1.0.0',
-          annotations: { [TypeAnnotation.MODE]: TypeMode.AUTO_UPDATE },
+          annotations: { [TypeAnnotation.MODE]: TypeMode.NOTIFICATION },
           imageInformation: { registry: 'registry.io', repository: 'app1', tag: 'v1.0.0', digest: 'sha256:a' },
           type: 'Deployment'
         },
@@ -165,8 +79,40 @@ describe('ImageWatcherService (unit tests)', () => {
 
       await service.processImageWatcher();
 
-      expect(mockOrchestratorService.listeApplications).toHaveBeenCalled();
       expect(spyProcessApplication).toHaveBeenCalledTimes(1);
+      expect(spyProcessApplication).toHaveBeenCalledWith(apps[0]);
+    });
+
+    it('traite toutes les applications avec IMAGE_WATCHER_WATCH_ALL=true', async () => {
+      vi.stubEnv('IMAGE_WATCHER_WATCH_ALL', 'true');
+
+      const apps: Application[] = [
+        {
+          namespace: 'ns1',
+          name: 'app1',
+          image: 'registry.io/app1:v1.0.0',
+          annotations: {},
+          imageInformation: { registry: 'registry.io', repository: 'app1', tag: 'v1.0.0', digest: 'sha256:a' },
+          type: 'Deployment'
+        },
+        {
+          namespace: 'ns2',
+          name: 'app2',
+          image: 'registry.io/app2:v1.0.0',
+          annotations: {},
+          imageInformation: { registry: 'registry.io', repository: 'app2', tag: 'v1.0.0', digest: 'sha256:b' },
+          type: 'Deployment'
+        }
+      ];
+
+      mockOrchestratorService.listeApplications.mockResolvedValue(apps);
+      mockRegistryService.getListeTags.mockResolvedValue([{ tag: 'v1.0.0', digest: 'sha256:a' }]);
+
+      const spyProcessApplication = vi.spyOn(service, 'processApplication');
+
+      await service.processImageWatcher();
+
+      expect(spyProcessApplication).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -176,7 +122,7 @@ describe('ImageWatcherService (unit tests)', () => {
       name: 'app',
       image: 'registry.io/repo:v1.0.0',
       annotations: {
-        [TypeAnnotation.MODE]: TypeMode.AUTO_UPDATE,
+        [TypeAnnotation.MODE]: TypeMode.NOTIFICATION,
         [TypeAnnotation.STRATEGY]: TypeStrategy.ALL
       },
       imageInformation: {
@@ -209,11 +155,10 @@ describe('ImageWatcherService (unit tests)', () => {
 
       await service.processApplication(app);
 
-      expect(mockRegistryService.getListeTags).toHaveBeenCalled();
-      expect(mockOrchestratorService.patchApplication).not.toHaveBeenCalled();
+      expect(mockNotificationService.broadcast).not.toHaveBeenCalled();
     });
 
-    it('met à jour automatiquement en mode AUTO_UPDATE', async () => {
+    it('envoie une notification Discord quand une nouvelle version est détectée', async () => {
       const app = createApp();
 
       mockRegistryService.getListeTags.mockResolvedValue([
@@ -228,27 +173,18 @@ describe('ImageWatcherService (unit tests)', () => {
         publishedAt: new Date('2024-01-01')
       });
 
-      mockOrchestratorService.patchApplication.mockResolvedValue(true);
-
       await service.processApplication(app);
 
       expect(mockReleaseService.getRelease).toHaveBeenCalledWith('repo', 'v1.1.0', expect.any(Object));
       expect(mockAIService.ask).toHaveBeenCalled();
-      expect(mockNotificationService.broadcast).toHaveBeenCalled();
-      expect(mockOrchestratorService.patchApplication).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.objectContaining({
-          [TypeAnnotation.CURRENT_VERSION]: 'v1.1.0',
-          [TypeAnnotation.PREVIOUS_VERSION]: 'v1.0.0'
-        }),
-        'registry.io/repo:v1.1.0'
+      expect(mockNotificationService.broadcast).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({ username: 'repo:v1.1.0' })
       );
     });
 
-    it('envoie une notification en mode NOTIFICATION', async () => {
-      const app = createApp({
-        annotations: { [TypeAnnotation.MODE]: TypeMode.NOTIFICATION }
-      });
+    it("ne patche jamais les ressources Kubernetes", async () => {
+      const app = createApp();
 
       mockRegistryService.getListeTags.mockResolvedValue([
         { tag: 'v1.0.0', digest: 'sha256:abc123' },
@@ -262,26 +198,39 @@ describe('ImageWatcherService (unit tests)', () => {
         publishedAt: new Date('2024-01-01')
       });
 
-      mockOrchestratorService.patchApplication.mockResolvedValue(true);
-
       await service.processApplication(app);
 
-      expect(mockOrchestratorService.patchApplication).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.objectContaining({
-          [TypeAnnotation.LAST_NOTIFIED]: expect.any(Date),
-          [TypeAnnotation.LAST_NOTIFIED_VERSION]: 'v1.1.0',
-          [TypeAnnotation.TOKEN_UPDATE]: expect.any(String)
-        })
-      );
+      expect(mockOrchestratorService).not.toHaveProperty('patchApplication');
+    });
 
-      expect(mockNotificationService.broadcast).toHaveBeenCalledWith(expect.arrayContaining([expect.stringContaining('Déployer la version v1.1.0')]), expect.any(Object));
+    it('ne renvoie pas de notification si la version a déjà été notifiée (anti-spam)', async () => {
+      const app = createApp();
+
+      mockRegistryService.getListeTags.mockResolvedValue([
+        { tag: 'v1.0.0', digest: 'sha256:abc123' },
+        { tag: 'v1.1.0', digest: 'sha256:def456' }
+      ]);
+
+      mockReleaseService.getRelease.mockResolvedValue({
+        version: 'v1.1.0',
+        changelog: 'New features',
+        url: 'https://github.com/repo/releases/v1.1.0',
+        publishedAt: new Date('2024-01-01')
+      });
+
+      // Premier appel : notification envoyée
+      await service.processApplication(app);
+      expect(mockNotificationService.broadcast).toHaveBeenCalledTimes(1);
+
+      // Deuxième appel : pas de renotification (état in-memory)
+      await service.processApplication(app);
+      expect(mockNotificationService.broadcast).toHaveBeenCalledTimes(1);
     });
 
     it('respecte la stratégie PATCH', async () => {
       const app = createApp({
         annotations: {
-          [TypeAnnotation.MODE]: TypeMode.AUTO_UPDATE,
+          [TypeAnnotation.MODE]: TypeMode.NOTIFICATION,
           [TypeAnnotation.STRATEGY]: TypeStrategy.PATCH
         }
       });
@@ -300,23 +249,19 @@ describe('ImageWatcherService (unit tests)', () => {
         publishedAt: new Date('2024-01-01')
       });
 
-      mockOrchestratorService.patchApplication.mockResolvedValue(true);
-
       await service.processApplication(app);
 
-      expect(mockOrchestratorService.patchApplication).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.objectContaining({
-          [TypeAnnotation.CURRENT_VERSION]: 'v1.0.1'
-        }),
-        'registry.io/repo:v1.0.1'
+      expect(mockReleaseService.getRelease).toHaveBeenCalledWith('repo', 'v1.0.1', expect.any(Object));
+      expect(mockNotificationService.broadcast).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({ username: 'repo:v1.0.1' })
       );
     });
 
     it('respecte la stratégie MINOR', async () => {
       const app = createApp({
         annotations: {
-          [TypeAnnotation.MODE]: TypeMode.AUTO_UPDATE,
+          [TypeAnnotation.MODE]: TypeMode.NOTIFICATION,
           [TypeAnnotation.STRATEGY]: TypeStrategy.MINOR
         }
       });
@@ -335,31 +280,27 @@ describe('ImageWatcherService (unit tests)', () => {
         publishedAt: new Date('2024-01-01')
       });
 
-      mockOrchestratorService.patchApplication.mockResolvedValue(true);
-
       await service.processApplication(app);
 
-      expect(mockOrchestratorService.patchApplication).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.objectContaining({
-          [TypeAnnotation.CURRENT_VERSION]: 'v1.1.0'
-        }),
-        'registry.io/repo:v1.1.0'
+      // La notification doit être envoyée avec la dernière version (v1.1.0 = latest dans le range minor)
+      expect(mockNotificationService.broadcast).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({ username: 'repo:v1.1.0' })
       );
+      // v2.0.0 ne doit pas être notifié
+      expect(mockReleaseService.getRelease).not.toHaveBeenCalledWith('repo', 'v2.0.0', expect.any(Object));
     });
 
     it('respecte la stratégie MAJOR', async () => {
       const app = createApp({
         annotations: {
-          [TypeAnnotation.MODE]: TypeMode.AUTO_UPDATE,
+          [TypeAnnotation.MODE]: TypeMode.NOTIFICATION,
           [TypeAnnotation.STRATEGY]: TypeStrategy.MAJOR
         }
       });
 
       mockRegistryService.getListeTags.mockResolvedValue([
         { tag: 'v1.0.0', digest: 'sha256:abc123' },
-        { tag: 'v1.0.1', digest: 'sha256:def456' },
-        { tag: 'v1.1.0', digest: 'sha256:ghi789' },
         { tag: 'v2.0.0', digest: 'sha256:jkl012' }
       ]);
 
@@ -370,16 +311,11 @@ describe('ImageWatcherService (unit tests)', () => {
         publishedAt: new Date('2024-01-01')
       });
 
-      mockOrchestratorService.patchApplication.mockResolvedValue(true);
-
       await service.processApplication(app);
 
-      expect(mockOrchestratorService.patchApplication).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.objectContaining({
-          [TypeAnnotation.CURRENT_VERSION]: 'v2.0.0'
-        }),
-        'registry.io/repo:v2.0.0'
+      expect(mockNotificationService.broadcast).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({ username: 'repo:v2.0.0' })
       );
     });
 
@@ -389,6 +325,31 @@ describe('ImageWatcherService (unit tests)', () => {
       mockRegistryService.getListeTags.mockRejectedValue(new Error('Network error'));
 
       await expect(service.processApplication(app)).resolves.toBeUndefined();
+    });
+
+    it('fallback sur le changelog brut si l\'IA échoue', async () => {
+      const app = createApp();
+
+      mockRegistryService.getListeTags.mockResolvedValue([
+        { tag: 'v1.0.0', digest: 'sha256:abc123' },
+        { tag: 'v1.1.0', digest: 'sha256:def456' }
+      ]);
+
+      mockReleaseService.getRelease.mockResolvedValue({
+        version: 'v1.1.0',
+        changelog: 'Raw changelog',
+        url: 'https://github.com/repo/releases/v1.1.0',
+        publishedAt: new Date('2024-01-01')
+      });
+
+      // L'IA échoue
+      mockAIService.ask.mockRejectedValue(new Error('OpenAI error'));
+      mockAIService.markdownToText.mockReturnValue('Raw changelog');
+
+      await service.processApplication(app);
+
+      // La notification doit quand même être envoyée avec le changelog brut
+      expect(mockNotificationService.broadcast).toHaveBeenCalled();
     });
   });
 
@@ -401,16 +362,16 @@ describe('ImageWatcherService (unit tests)', () => {
     });
 
     it('retourne la valeur en minuscule si elle existe', () => {
-      const annotations = { 'image-watcher.mode': TypeMode.AUTO_UPDATE };
+      const annotations = { 'image-watcher.mode': TypeMode.NOTIFICATION };
       const result = service['parseAnnotation'](annotations, 'image-watcher.mode' as TypeAnnotation);
 
-      expect(result).toBe(TypeMode.AUTO_UPDATE);
+      expect(result).toBe(TypeMode.NOTIFICATION);
     });
 
     it("retourne la valeur par défaut si aucune valeur n'est fournie", () => {
       const result = service['parseAnnotation']({}, TypeAnnotation.MODE);
 
-      expect(result).toBe(TypeMode.AUTO_UPDATE);
+      expect(result).toBe(TypeMode.NOTIFICATION);
     });
 
     it("retourne la valeur de l'environnement si fournie", () => {
@@ -430,13 +391,13 @@ describe('ImageWatcherService (unit tests)', () => {
       const annotations = { [TypeAnnotation.MODE]: 'invalid-mode' };
       const result = service['parseAnnotation'](annotations, TypeAnnotation.MODE);
 
-      expect(result).toBe(TypeMode.AUTO_UPDATE);
+      expect(result).toBe(TypeMode.NOTIFICATION);
     });
   });
 
   describe('hasImageWatcher()', () => {
     it('retourne true si une annotation image-watcher existe', () => {
-      const annotations = { 'image-watcher.mode': 'auto-update' };
+      const annotations = { 'image-watcher/mode': 'notification' };
       const result = service['hasImageWatcher'](annotations);
 
       expect(result).toBe(true);
@@ -450,7 +411,7 @@ describe('ImageWatcherService (unit tests)', () => {
     });
 
     it('est insensible à la casse', () => {
-      const annotations = { 'IMAGE-WATCHER.MODE': 'auto-update' };
+      const annotations = { 'IMAGE-WATCHER/MODE': 'notification' };
       const result = service['hasImageWatcher'](annotations);
 
       expect(result).toBe(true);
@@ -470,7 +431,7 @@ describe('ImageWatcherService (unit tests)', () => {
         digest: digest || 'sha256:abc123'
       },
       parsedAnnotations: {
-        [TypeAnnotation.MODE]: TypeMode.AUTO_UPDATE,
+        [TypeAnnotation.MODE]: TypeMode.NOTIFICATION,
         [TypeAnnotation.STRATEGY]: TypeStrategy.ALL
       },
       hasImageWatcher: true,
@@ -484,7 +445,7 @@ describe('ImageWatcherService (unit tests)', () => {
       expect(result).toBe('v1.0.0');
     });
 
-    it('retourne la version annotée si présente', async () => {
+    it('retourne la version annotée si présente (fallback non-semver)', async () => {
       const app = createWatchedApp('latest');
       app.parsedAnnotations[TypeAnnotation.CURRENT_VERSION] = 'v1.5.0';
 
@@ -554,7 +515,7 @@ describe('ImageWatcherService (unit tests)', () => {
       expect(result.parsedAnnotations[TypeAnnotation.STRATEGY]).toBe(TypeStrategy.MINOR);
     });
 
-    it('gère les applications sans annotations', () => {
+    it('applique les valeurs par défaut pour les applications sans annotations', () => {
       const app: Application = {
         namespace: 'test',
         name: 'app',
@@ -572,21 +533,16 @@ describe('ImageWatcherService (unit tests)', () => {
       const result = service['toWatchedApplication'](app);
 
       expect(result.hasImageWatcher).toBe(false);
-      expect(result.parsedAnnotations[TypeAnnotation.MODE]).toBe(TypeMode.AUTO_UPDATE);
+      expect(result.parsedAnnotations[TypeAnnotation.MODE]).toBe(TypeMode.NOTIFICATION);
     });
   });
 
   describe('getAnnotations()', () => {
-    it('parse toutes les annotations correctement', () => {
-      const now = new Date();
+    it('parse les annotations de configuration correctement', () => {
       const annotations = {
         [TypeAnnotation.MODE]: TypeMode.NOTIFICATION,
         [TypeAnnotation.STRATEGY]: TypeStrategy.PATCH,
         [TypeAnnotation.CURRENT_VERSION]: 'v1.5.0',
-        [TypeAnnotation.PREVIOUS_VERSION]: 'v1.4.0',
-        [TypeAnnotation.LAST_UPDATED]: now.toISOString(),
-        [TypeAnnotation.LAST_NOTIFIED]: now.toISOString(),
-        [TypeAnnotation.TOKEN_UPDATE]: 'test-token',
         [TypeAnnotation.RELEASE_URL]: 'https://github.com/repo'
       };
 
@@ -595,8 +551,7 @@ describe('ImageWatcherService (unit tests)', () => {
       expect(result[TypeAnnotation.MODE]).toBe(TypeMode.NOTIFICATION);
       expect(result[TypeAnnotation.STRATEGY]).toBe(TypeStrategy.PATCH);
       expect(result[TypeAnnotation.CURRENT_VERSION]).toBe('v1.5.0');
-      expect(result[TypeAnnotation.LAST_UPDATED]).toBeInstanceOf(Date);
-      expect(result[TypeAnnotation.TOKEN_UPDATE]).toBe('test-token');
+      expect(result[TypeAnnotation.RELEASE_URL]).toBe('https://github.com/repo');
     });
   });
 });
