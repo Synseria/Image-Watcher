@@ -68,3 +68,6 @@ helm install image-watcher ./helm \
 > - [Déployer la version v1.2.3](https://votre-url/api/upgrade/namespace/name?token=...&version=1.2.3)
 
 ---
+###
+git tag v1.0.0
+git push origin v1.0.0
