@@ -132,7 +132,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Configuration de QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Configuration de Buildx
         uses: docker/setup-buildx-action@v3
@@ -197,7 +197,7 @@ jobs:
           fetch-depth: 0
 
       - name: Configuration de QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Configuration de Buildx
         uses: docker/setup-buildx-action@v3
