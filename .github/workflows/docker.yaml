@@ -103,7 +103,7 @@ jobs:
       # -----------------------------------------------------------------------
       # Authentification requise pour publier l'image sur GHCR
       - name: Connexion à GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}         # Utilisateur GitHub déclenchant le workflow
