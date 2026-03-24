@@ -96,7 +96,7 @@ jobs:
       # Buildx est nécessaire pour les builds multi-architecture et les
       # fonctionnalités avancées comme la mise en cache
       - name: Configuration de Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # -----------------------------------------------------------------------
       # Étape 4 : Connexion à GitHub Container Registry
