@@ -147,7 +147,7 @@ jobs:
       # Construit l'image pour amd64 et arm64, puis la publie sur GHCR
       # avec tous les tags générés à l'étape précédente
       - name: Construction et publication de l'image Docker
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .                                    # Utilise le répertoire courant
           file: ./Dockerfile                            # Chemin vers le Dockerfile

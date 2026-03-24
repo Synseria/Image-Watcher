@@ -154,7 +154,7 @@ jobs:
             type=sha,prefix=dev-
 
       - name: Build et Push Docker
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
@@ -221,7 +221,7 @@ jobs:
 
       - name: Build et Push Docker
         id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
